@@ -22,7 +22,7 @@ class ENIP_Originator():
         self.ignoring_sender_context = 1
         self.internal_sender_context = 0
         self.buffer_size_per_sender_context = 5
-        self.sender_context = 100
+        self.sender_context = self.ignoring_sender_context + 1
 
         self.TCP_rcv_buffer = bytearray()
 
@@ -32,6 +32,8 @@ class ENIP_Originator():
         self.connection_thread.start()
 
     def get_next_sender_context(self):
+        if self.sender_context >= 10000:
+            self.sender_context = self.ignoring_sender_context
         self.sender_context += 1
         return self.sender_context
 
@@ -51,24 +53,27 @@ class ENIP_Originator():
             time_out_ms -= sleep_period * 1000
         return None
 
-    def send_encap(self, data, connected_address=None, sender_context=True):
+    def send_encap(self, data, send_id=None, receive_id=None):
         CPF_Array = CPF_Items()
-        if connected_address != None:
+
+        if receive_id == None:
+            receive_id = self.ignoring_sender_context
+
+        if send_id != None:
             cmd_code = ENIPCommandCode.SendUnitData
             command_specific = SendUnitData(Interface_handle=0, Timeout=0)
-            CPF_Array.append(CPF_ConnectedAddress(Connection_Identifier=connected_address))
+            CPF_Array.append(CPF_ConnectedAddress(Connection_Identifier=send_id))
             CPF_Array.append(CPF_ConnectedData(Length=len(data)))
+            context = receive_id
         else:
             cmd_code = ENIPCommandCode.SendRRData
             command_specific = SendRRData(Interface_handle=0, Timeout=0)
             CPF_Array.append(CPF_NullAddress())
             CPF_Array.append(CPF_UnconnectedData(Length=len(data)))
+            context = self.get_next_sender_context()
         command_specific_bytes = command_specific.Export()
         CPF_bytes = CPF_Array.Export()
 
-        context = self.ignoring_sender_context # we ignore response with context of 1
-        if sender_context:
-            context = self.get_next_sender_context()
 
         encap_header = ENIPEncapsulationHeader( cmd_code,
                                                 len(command_specific_bytes) + len(CPF_bytes) + len(data),
@@ -188,10 +193,14 @@ class ENIP_Originator():
                                          data=packet[offset:packet_length]
                                         )
 
+        if header.Command == ENIPCommandCode.SendUnitData:
+            rsp_identifier = CPF_Array[0].Connection_Identifier
+        else:
+            rsp_identifier = header.Sender_Context
 
-        if header.Sender_Context not in self.response_buffer:
-            self.response_buffer[header.Sender_Context] = queue.Queue(self.buffer_size_per_sender_context)
-        self.response_buffer[header.Sender_Context].put(parsed_packet)
+        if rsp_identifier not in self.response_buffer:
+            self.response_buffer[rsp_identifier] = queue.Queue(self.buffer_size_per_sender_context)
+        self.response_buffer[rsp_identifier].put(parsed_packet)
 
         del packet[:header.Length + header.header_size]
 
@@ -204,6 +213,7 @@ class trans_metadata():
         self.host = socket.getsockname()
         self.peer = socket.getpeername()
         self.protocall = proto
+
         self.recevied_time = time.time()
 
 class ENIPEncapsulationHeader():

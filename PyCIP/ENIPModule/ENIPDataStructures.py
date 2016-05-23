@@ -2,6 +2,11 @@ from DataTypesModule.DataParsers import *
 from DataTypesModule.DataTypes import *
 from enum import IntEnum
 
+class MessageType(IntEnum):
+
+    explicitUCMM      = 0x00
+    explicitCM        = 0x01
+    implicitIO        = 0x02
 
 
 class ENIPCommandCode(IntEnum):

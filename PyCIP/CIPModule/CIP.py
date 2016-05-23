@@ -65,7 +65,7 @@ class forward_open():
         f_struct['tick'] = 6
         f_struct['time_out'] = 0x28
         f_struct['OT_connection_ID'] = random.randrange(1, 99999)
-        f_struct['TO_connection_ID'] = 0
+        f_struct['TO_connection_ID'] = self.trans.get_next_sender_context()
         f_struct['connection_serial'] = random.randrange(0, 2^16)
         f_struct['O_vendor_ID'] = 88
         f_struct['O_serial'] = 12345678
@@ -96,10 +96,12 @@ class Basic_CIP():
         self.trans = transportLayer
         self.sequence_number = 1
         self.connected = connected
-        self.connection_id = None
+        self.OT_connection_id = None
+        self.TO_connection_id = None
         if connected:
             self.forward_open_rsp = forward_open(self.trans, **kwargs)
-            self.connection_id = self.forward_open_rsp.OT_connection_ID
+            self.OT_connection_id = self.forward_open_rsp.OT_connection_ID
+            self.TO_connection_id = self.forward_open_rsp.TO_connection_ID
 
     def explicit_message(self, service, *EPath, receive=True):
         packet = bytearray()
@@ -112,9 +114,18 @@ class Basic_CIP():
         for item in EPath:
             packet += item
 
-        context = self.trans.send_encap(packet, self.connection_id, receive)
+        if receive:
+            receive_id = self.TO_connection_id if self.TO_connection_id else 0
+        else:
+            receive_id = None
+
+        # SEND PACKET
+        context = self.trans.send_encap(packet, self.OT_connection_id, receive_id)
+
         if context:
             response = self.trans.receive_encap(context)
+            if response == None:
+                return None
             structure = []
             if self.connected:
                 message_response = MessageRouterResponseStruct()

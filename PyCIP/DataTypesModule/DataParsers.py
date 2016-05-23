@@ -90,7 +90,7 @@ class ParsedStructure():
         self.data = OrderedDict(data)
         self.data_length = data_length
         self.data_offset = data_offset
-               
+
 
 def CIP_Data_Import(data, struct, byte_offset=0):
     parsed_data = ParsedStructure()
