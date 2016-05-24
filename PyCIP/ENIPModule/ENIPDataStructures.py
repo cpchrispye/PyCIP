@@ -1,5 +1,4 @@
 from DataTypesModule.DataParsers import *
-from DataTypesModule.DataTypes import *
 from enum import IntEnum
 
 class MessageType(IntEnum):
@@ -31,9 +30,13 @@ class CPF_Codes(IntEnum):
     OTSockaddrInfo    = 0x8000
     TOSockaddrInfo    = 0x8001
 
-class CommandSpecific_Rsp(BaseStructContainer):
+class CommandSpecific_Rsp(CIPDataStructure):
     command = None
-    pass
+    def __init__(self, **kwargs):
+        super().__init__()
+        for k, v in kwargs.items():
+            self.__setattr__(k, v)
+
 
 class NOP_CS(CommandSpecific_Rsp):
     command = ENIPCommandCode.NOP
@@ -49,10 +52,10 @@ class ListInterfaces(CommandSpecific_Rsp):
 
 class RegisterSession(CommandSpecific_Rsp):
     command = ENIPCommandCode.RegisterSession
-    struct_definition = (
+    global_structure = OrderedDict((
         ('Protocol_version', 'UINT'),
         ('Options_flags', 'UINT'),
-    )
+    ))
 
 class UnRegisterSession(CommandSpecific_Rsp):
     command = ENIPCommandCode.UnRegisterSession
@@ -60,26 +63,26 @@ class UnRegisterSession(CommandSpecific_Rsp):
 
 class SendRRData(CommandSpecific_Rsp):
     command = ENIPCommandCode.SendRRData
-    struct_definition = (
+    global_structure = OrderedDict((
         ('Interface_handle', 'UDINT'),
         ('Timeout', 'UINT'),
-    )
+    ))
 
 class SendUnitData(CommandSpecific_Rsp):
     command = ENIPCommandCode.SendUnitData
-    struct_definition = (
+    global_structure = OrderedDict((
         ('Interface_handle', 'UDINT'),
         ('Timeout', 'UINT'),
-    )
+    ))
 
 class CommandSpecificParser():
     parsers_rsp = {parser.command:parser for parser in CommandSpecific_Rsp.__subclasses__()}
 
     @classmethod
-    def Import(cls, data, command, response=False, offset=0):
+    def import_data(cls, data, command, response=False, offset=0):
         if response:
             data_parser = cls.parsers_rsp[command]()
         else:
             pass
-        data_parser.Import(data, offset)
+        data_parser.import_data(data, offset)
         return data_parser

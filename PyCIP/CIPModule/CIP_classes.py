@@ -5,7 +5,7 @@ from DataTypesModule.DataParsers import *
 class Identity_Object():
 
     def __init__(self, transport, **kwargs):
-        self.struct = [
+        self.struct = CIPDataStructure(
             ('Vendor_ID', 'UINT'),
             ('Device_Type', 'UINT'),
             ('Product_Code', 'UINT'),
@@ -16,11 +16,11 @@ class Identity_Object():
             ('Status', 'WORD'),
             ('Serial_Number', 'UDINT'),
             ('Product Name', 'SHORT_STRING')
-        ]
+        )
         cip_obj = CIP.Basic_CIP(transport, **kwargs)
         rsp = cip_obj.get_attr_all(1, 1)
-        data_parser = CIP.CIP_Data_Builder()
-        self.__dict__.update(data_parser.Import(rsp.data, self.struct))
+        self.struct.import_data(rsp.data)
+        self.__dict__.update(self.struct.get_dict())
 
 class DLR_Object():
 
@@ -29,7 +29,7 @@ class DLR_Object():
             ('Device_IP_Address', 'UDINT'),
             ('Device_MAC_Address', [6, 'USINT']),
         ]
-        self.struct = [
+        self.struct = CIPDataStructure(
             ('Network_Topology', 'USINT'),
             ('Device_Type', 'USINT'),
             ('Ring_Supervisor_Status', 'USINT'),
@@ -54,15 +54,15 @@ class DLR_Object():
                 ('Device_MAC_Address', [6, 'USINT'])
             ]),
             ('Active_Supervisor_Precedence', 'USINT'),
-            ('Capability Flags', 'DWORD'),
-
-        ]
+            ('Capability Flags', 'DWORD')
+        )
         self.transport = transport
         self.update()
 
     def update(self):
         rsp = self.transport.get_attr_all(71, 1)
         if rsp.CIP.General_Status == 0:
-            self_parsed_data = CIP_Data_Import(rsp.data, self.struct).data
-            self.__dict__.update(self_parsed_data)
+            self.struct.import_data(rsp.data)
+
+
 

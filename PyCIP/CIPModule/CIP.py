@@ -6,48 +6,32 @@ from DataTypesModule.DataParsers import *
 from collections import OrderedDict as O_Dict
 import random
 
-class ListIdentity():
-
-    def __init__(self, transportLayer):
-        self.trans = transportLayer
-        self.data  = bytearray(self.trans.listIdentity())
-        self.struct = [
-            ("Vendor_ID", "UINT"),
-            ("Device_Type", "UINT"),
-            ("Product_Code", "UINT"),
-            ("Major_Revision", "UINT"),
-            ("Minor_Revision", "UINT"),
-            ("Status", "UINT"),
-            ("Serial_Number", "UINT"),
-        ]
-        self.__dict__.update(CIP_Data_Import(self.data, self.struct).data)
-
-
 class forward_open():
 
     def __init__(self, transport, **kwargs):
         self.trans = transport
-        self.struct = [
-                        # CIP Responce
-                        ('Service', 'UINT'),
-                        ('General_Status', 'USINT'),
-                        ('Additional_Status', 'USINT'),
-                        # forward open rsp
-                        ('OT_connection_ID', 'UDINT'),
-                        ('TO_connection_ID', 'UDINT'),
-                        ('connection_serial', 'UINT'),
-                        ('O_vendor_ID', 'UINT'),
-                        ('O_serial', 'UDINT'),
-                        ('OT_API', 'UDINT'),
-                        ('TO_API', 'UDINT'),
-                        ('Application_Size', 'USINT'),
-                        ('Reserved', 'USINT'),
-                        ('Data', ['Application_Size', 'BYTE']),
+        self.struct = CIPDataStructure(
+                                        # CIP Responce
+                                        ('Service', 'UINT'),
+                                        ('General_Status', 'USINT'),
+                                        ('Additional_Status', 'USINT'),
+                                        # forward open rsp
+                                        ('OT_connection_ID', 'UDINT'),
+                                        ('TO_connection_ID', 'UDINT'),
+                                        ('connection_serial', 'UINT'),
+                                        ('O_vendor_ID', 'UINT'),
+                                        ('O_serial', 'UDINT'),
+                                        ('OT_API', 'UDINT'),
+                                        ('TO_API', 'UDINT'),
+                                        ('Application_Size', 'USINT'),
+                                        ('Reserved', 'USINT'),
+                                        ('Data', ['Application_Size', 'BYTE']),
 
-        ]
+                                        )
         self.packet = self.send(**kwargs)
         if self.packet:
-            self.__dict__.update(CIP_Data_Import(self.packet.data, self.struct).data)
+            self.struct.import_data(self.packet.data)
+            self.__dict__.update(self.struct.get_dict())
 
     def send(self, **kwargs):
 
@@ -131,9 +115,9 @@ class Basic_CIP():
                 message_response = MessageRouterResponseStruct()
             else:
                 message_response = MessageRouterResponseStruct_UCMM()
-            message_response.Import(response.data)
+            message_response.import_data(response.data)
             response.CIP = message_response
-            response.data = response.data[len(response.CIP):]
+            response.data = response.data[response.CIP.byte_size:]
 
             return response
         return None
@@ -156,18 +140,20 @@ class Basic_CIP():
         return packet
 
 #vol1 ver 3.18 2-4.2
-class MessageRouterResponseStruct(BaseStructContainer):
-    struct_definition = [('Sequence_Count', 'UINT'),
-                         ('Reply_Service', 'USINT'),
-                         ('Reserved', 'USINT'),
-                         ('General_Status', 'USINT'),
-                         ('Size_of_Additional_Status', 'USINT'),
-                         ('Additional_Status', ['Size_of_Additional_Status', 'WORD']),]
+class MessageRouterResponseStruct(CIPDataStructure):
+    global_structure = OrderedDict((('Sequence_Count', 'UINT'),
+                                     ('Reply_Service', 'USINT'),
+                                     ('Reserved', 'USINT'),
+                                     ('General_Status', 'USINT'),
+                                     ('Size_of_Additional_Status', 'USINT'),
+                                     ('Additional_Status', ['Size_of_Additional_Status', 'WORD']))
+                                    )
 #vol1 ver 3.18 2-4.2
-class MessageRouterResponseStruct_UCMM(BaseStructContainer):
-    struct_definition = [('Reply_Service', 'USINT'),
-                         ('Reserved', 'USINT'),
-                         ('General_Status', 'USINT'),
-                         ('Size_of_Additional_Status', 'USINT'),
-                         ('Additional_Status', ['Size_of_Additional_Status', 'WORD']),]
+class MessageRouterResponseStruct_UCMM(CIPDataStructure):
+    global_structure = OrderedDict((('Reply_Service', 'USINT'),
+                                     ('Reserved', 'USINT'),
+                                     ('General_Status', 'USINT'),
+                                     ('Size_of_Additional_Status', 'USINT'),
+                                     ('Additional_Status', ['Size_of_Additional_Status', 'WORD'])
+                                     ))
 

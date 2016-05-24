@@ -19,74 +19,75 @@ class CPF_Items(list):
     def __init__(self):
         self.Item_count = 0
         self.size = 0
-        self.CPF_dict = { CPF_object.Type_ID:CPF_object for CPF_object in CPF_Item.__subclasses__() }
+        self.CPF_dict = { CPF_object.type_id:CPF_object for CPF_object in CPF_Item.__subclasses__() }
 
-    def parse(self, data, offset=0):
-        self.Item_count = UINT_CIP().parse(data, offset)
+    def import_data(self, data, offset=0):
+        self.Item_count = UINT_CIP().import_data(data, offset)
         self.size += UINT_CIP().byte_size
         offset    += UINT_CIP().byte_size
 
         for _ in range(self.Item_count):
-            CPF_type = UINT_CIP().parse(data, offset)
+            CPF_type = UINT_CIP().import_data(data, offset)
             CPF_Item_obj = self.CPF_dict[CPF_type]()
-            CPF_Item_obj.Import(data, offset)
+            CPF_Item_obj.import_data(data, offset)
 
-            self.size += len(CPF_Item_obj)
-            offset    += len(CPF_Item_obj)
+            self.size += CPF_Item_obj.byte_size
+            offset    += CPF_Item_obj.byte_size
             self.append(CPF_Item_obj)
 
         return self.size
 
-    def Export(self):
+    def export_data(self):
         self.Item_count = len(self)
         bytes_out = bytes()
-        bytes_out += UINT_CIP().build(self.Item_count)
+        bytes_out += UINT_CIP().export_data(self.Item_count)
 
         for CPF in self:
-            bytes_out += CPF.Export()
+            bytes_out += CPF.export_data()
         return bytes_out
 
-class CPF_Item(BaseStructContainer):
-    Type_ID = None
-    struct_definition  = [('Type_ID', 'UINT'), ('Length', 'UINT')]
+class CPF_Item(CIPDataStructure):
+    type_id = None
+    global_structure  = OrderedDict((('Type_ID', 'UINT'), ('Length', 'UINT')))
+    def __init__(self, **kwargs):
+        super().__init__()
+        self.Type_ID = self.type_id
+        self.Length  = 0
+        for k, v in kwargs.items():
+            self.__setattr__(k, v)
+
 
 class CPF_NullAddress(CPF_Item):
-    Type_ID = CPF_Codes.NullAddress
+    type_id = CPF_Codes.NullAddress
 
     def __init__(self, **kwargs):
-        self.Length = 0
         super().__init__(**kwargs)
 
 class CPF_ConnectedAddress(CPF_Item):
-    Type_ID = CPF_Codes.ConnectedAddress
-    struct_definition  = [('Type_ID', 'UINT'), ('Length', 'UINT'), ('Connection_Identifier', 'UDINT')]
+    type_id = CPF_Codes.ConnectedAddress
+    global_structure  = OrderedDict((('Type_ID', 'UINT'), ('Length', 'UINT'), ('Connection_Identifier', 'UDINT')))
 
     def __init__(self,**kwargs):
-        self.Connection_Identifier = None
-        self.Length = 4
         super().__init__(**kwargs)
+        self.Length = 4
+
 
 class CPF_SequencedAddress(CPF_Item):
-    Type_ID = CPF_Codes.SequencedAddress
+    type_id = CPF_Codes.SequencedAddress
     struct_definition  = [('Type_ID', 'UINT'), ('Length', 'UINT'),
                           ('Connection_Identifier', 'UDINT'), ('Encapsulation_Sequence_Number', 'UDINT')]
 
     def __init__(self, **kwargs):
-        self.Connection_Identifier = None
-        self.Encapsulation_Sequence_Number = None
-        self.Length = 8
         super().__init__(**kwargs)
+        self.Length = 8
+
 
 class CPF_UnconnectedData(CPF_Item):
-    Type_ID = CPF_Codes.UnconnectedData
-
+    type_id = CPF_Codes.UnconnectedData
     def __init__(self, **kwargs):
-        self.Length = None
         super().__init__(**kwargs)
 
 class CPF_ConnectedData(CPF_Item):
-    Type_ID = CPF_Codes.ConnectedData
-
+    type_id = CPF_Codes.ConnectedData
     def __init__(self, **kwargs):
-        self.Length = None
         super().__init__(**kwargs)

@@ -2,7 +2,7 @@ import threading
 import socket
 import time
 import struct
-from DataTypesModule.DataParsers import CIP_Data_Import, CIP_Data_Export, ParsedStructure, CIP_Struct
+from DataTypesModule.DataParsers import CIPDataStructure
 import queue
 from DataTypesModule.CPF import *
 from .ENIPDataStructures import *
@@ -71,8 +71,8 @@ class ENIP_Originator():
             CPF_Array.append(CPF_NullAddress())
             CPF_Array.append(CPF_UnconnectedData(Length=len(data)))
             context = self.get_next_sender_context()
-        command_specific_bytes = command_specific.Export()
-        CPF_bytes = CPF_Array.Export()
+        command_specific_bytes = command_specific.export_data()
+        CPF_bytes = CPF_Array.export_data()
 
 
         encap_header = ENIPEncapsulationHeader( cmd_code,
@@ -82,22 +82,20 @@ class ENIP_Originator():
                                                 context,
                                                 0,
                                                 )
-        encap_header_bytes = encap_header.Export()
+        encap_header_bytes = encap_header.export_data()
 
         self._send_encap(encap_header_bytes + command_specific_bytes + CPF_bytes + data)
 
         if context == self.ignoring_sender_context:
             return None
-
         return context
-
 
     def _send_encap(self, packet):
         self.data_out_queue.put(packet)
 
     def register_session(self):
         command_specific = RegisterSession(Protocol_version=1, Options_flags=0)
-        command_specific_bytes = command_specific.Export()
+        command_specific_bytes = command_specific.export_data()
         encap_header = ENIPEncapsulationHeader(ENIPCommandCode.RegisterSession,
                                                len(command_specific_bytes),
                                                0,
@@ -105,7 +103,7 @@ class ENIP_Originator():
                                                self.internal_sender_context,
                                                0,
                                                )
-        self._send_encap(encap_header.Export() + command_specific_bytes)
+        self._send_encap(encap_header.export_data() + command_specific_bytes)
 
         time_sleep = 5/1000
         timeout = 5.0
@@ -117,7 +115,6 @@ class ENIP_Originator():
                     s.close()
                 self.manage_connection = False
                 break
-
 
     def _manage_connection(self):
         while self.manage_connection:
@@ -171,7 +168,7 @@ class ENIP_Originator():
         transport = trans_metadata(socket, 'tcp')
 
         header    = ENIPEncapsulationHeader()
-        offset    = header.Import(packet)
+        offset    = header.import_data(packet)
         packet_length = header.Length + header.header_size
         if offset < 0 or packet_length  > len(packet):
             return -1
@@ -180,11 +177,11 @@ class ENIP_Originator():
         CPF_Array = None
 
         if offset < packet_length:
-            parsed_cmd_spc = CommandSpecificParser().Import(packet, header.Command, response=True, offset=offset)
-            offset += len(parsed_cmd_spc)
+            parsed_cmd_spc = CommandSpecificParser().import_data(packet, header.Command, response=True, offset=offset)
+            offset += parsed_cmd_spc.byte_size
         if offset < packet_length:
             CPF_Array = CPF_Items()
-            offset += CPF_Array.parse(packet, offset)
+            offset += CPF_Array.import_data(packet, offset)
 
         parsed_packet = TransportPacket( transport,
                                          header,
@@ -203,9 +200,6 @@ class ENIP_Originator():
         self.response_buffer[rsp_identifier].put(parsed_packet)
 
         del packet[:header.Length + header.header_size]
-
-
-
 
 class trans_metadata():
 
@@ -229,10 +223,10 @@ class ENIPEncapsulationHeader():
         self.Sender_Context = Sender_Context
         self.Options        = Options
 
-    def Import(self, data):
+    def import_data(self, data, offset=0):
         self.header_size = struct.calcsize(self.ENIPHeaderStruct)
-        if len(data) >= self.header_size:
-            ENIP_header = struct.unpack(self.ENIPHeaderStruct, data[:self.header_size])
+        if len(data) - offset >= self.header_size:
+            ENIP_header = struct.unpack(self.ENIPHeaderStruct, data[offset:self.header_size])
             self.Command        = ENIP_header[0]
             self.Length         = ENIP_header[1]
             self.Session_Handle = ENIP_header[2]
@@ -242,7 +236,7 @@ class ENIPEncapsulationHeader():
             return self.header_size
         return -1
 
-    def Export(self):
+    def export_data(self):
         return struct.pack(self.ENIPHeaderStruct,   self.Command,
                                                     self.Length,
                                                     self.Session_Handle,

@@ -90,10 +90,10 @@ class BaseDataParser():
     def _build(value, byte_size, signed):
         return value.to_bytes(byte_size, 'little', signed=signed)
 
-    def parse(self, data, offset=0):
+    def import_data(self, data, offset=0):
         return self._parse(data, self.byte_size, self.signed, offset)
 
-    def build(self, value):
+    def export_data(self, value):
         return self._build(value, self.byte_size, self.signed)
 
 class Array_CIP(BaseDataParser):
@@ -102,7 +102,7 @@ class Array_CIP(BaseDataParser):
         self.data_type = data_type
         self.size = size
 
-    def parse(self, data, offset=0):
+    def import_data(self, data, offset=0):
         i=0
 
 class StringDataParser():
@@ -111,7 +111,7 @@ class StringDataParser():
         self.char_size = char_size
         self.byte_size = 0
 
-    def parse(self, data, offset=0):
+    def import_data(self, data, offset=0):
         section = data[offset: offset + 2]
         offset += 2
         string_size =  int.from_bytes(section, 'little', signed=0 )
@@ -131,7 +131,7 @@ class ShortStringDataParser():
     def __init__(self):
         self.char_size = 1
 
-    def parse(self, data, offset=0):
+    def import_data(self, data, offset=0):
         section = data[offset: offset + 1]
         offset += 1
         string_size =  int.from_bytes(section, 'little', signed=0 )
@@ -195,7 +195,7 @@ class LWORD_CIP(BaseDataParser):
     signed = 0
 
 class EPATH(BaseDataParser):
-    def parse(self, data, offset=0):
+    def import_data(self, data, offset=0):
         print("Encounted EPATH Fail!!")
         return 0
 
