@@ -5,6 +5,7 @@ from DataTypesModule.DataParsers import *
 class Identity_Object():
 
     def __init__(self, transport, **kwargs):
+        self.transport = transport
         self.struct = CIPDataStructure(
             ('Vendor_ID', 'UINT'),
             ('Device_Type', 'UINT'),
@@ -17,10 +18,14 @@ class Identity_Object():
             ('Serial_Number', 'UDINT'),
             ('Product Name', 'SHORT_STRING')
         )
-        cip_obj = CIP.Basic_CIP(transport, **kwargs)
-        rsp = cip_obj.get_attr_all(1, 1)
-        self.struct.import_data(rsp.data)
-        self.__dict__.update(self.struct.get_dict())
+        self.update()
+
+    def update(self):
+        rsp = self.transport.get_attr_all(1, 1)
+        if rsp.CIP.General_Status == 0:
+            self.struct.import_data(rsp.data)
+            self.__dict__.update(self.struct.get_dict())
+
 
 class DLR_Object():
 

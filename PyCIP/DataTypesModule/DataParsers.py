@@ -6,7 +6,7 @@ class CIPDataStructure():
     def __init__(self, *data_tuple):
         self.structure = OrderedDict(self.global_structure)
         self.structure.update(data_tuple)
-        self.keys = self.structure.keys()
+        self.keys = list(self.structure.keys())
         self.byte_size = 0
         self.data = {}
 
