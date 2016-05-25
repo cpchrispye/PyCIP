@@ -78,7 +78,7 @@ class DLR_Object():
         rsp = self.transport.get_attr_all(71, 1)
         data_len = len(rsp.data)
         filter = self.dict_of_versions[data_len]
-        st = list(self.master_struct.structure.items())
+        st = self.master_struct.get_struct()
         self.struct = CIPDataStructure(*[st[i-1] for i in filter])
 
 

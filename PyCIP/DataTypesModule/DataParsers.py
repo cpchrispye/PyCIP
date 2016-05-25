@@ -3,10 +3,12 @@ from collections import OrderedDict
 
 class CIPDataStructure():
     global_structure = OrderedDict()
+
     def __init__(self, *data_tuple):
         self.structure = OrderedDict(self.global_structure)
         self.structure.update(data_tuple)
         self.keys = list(self.structure.keys())
+        self._struct_list = tuple(self.structure.items())
         self.byte_size = 0
         self.data = {}
 
@@ -39,6 +41,14 @@ class CIPDataStructure():
 
     def items(self):
         return [(key, self.data[key]) for key in self.keys]
+
+    def get_struct(self, index=None):
+        if index:
+            return self._struct_list[index]
+        return self._struct_list
+
+    def keys(self):
+        return self.keys
 
     def import_data(self, bytes, offset=0):
         start_offset = offset
