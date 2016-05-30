@@ -1,13 +1,9 @@
 import threading
-import queue
-import time
 from DataTypesModule.CPF import CPF_Codes
-import struct
-from DataTypesModule.DataTypes import *
 from DataTypesModule.DataParsers import *
 from DataTypesModule.signaling import Signaler, SignalerM2M
-from collections import OrderedDict as O_Dict
 from CIPModule.connection_manager_class import ConnectionManager
+from enum import IntEnum
 
 class Basic_CIP():
 
@@ -75,13 +71,7 @@ class Basic_CIP():
             sequence_number = self.sequence_number
             packet += struct.pack('H', sequence_number)
 
-        packet.append(service)
-        EPath_bytes = bytes()
-        for item in EPath:
-            EPath_bytes += item
-        packet.append(len(EPath_bytes)//2)
-        packet += EPath_bytes
-        packet += data
+        packet += explicit_request(service, *EPath, data=data)
 
         if receive:
             receive_id = self.TO_connection_id if self.TO_connection_id else self.trans.get_next_sender_context()
@@ -147,8 +137,106 @@ class MessageRouterResponseStruct_UCMM(CIPDataStructure):
                                      ('Additional_Status', ['Size_of_Additional_Status', 'WORD'])
                                      ))
 
+def explicit_request(service, *EPath, data=bytes()):
+    request = bytearray()
+    request.append(service)
+    EPath_bytes = bytes()
+    for item in EPath:
+        EPath_bytes += item
+    request.append(len(EPath_bytes)//2)
+    request += EPath_bytes
+    request += data
+    return request
+
 
 class CIP_Manager():
 
-    def __init__(self, trasport, *EPath):
-        pass
+    def __init__(self, transport, *EPath):
+        self.trans = transport
+        self.path = EPath
+        self.primary_connection = Basic_CIP(transport)
+        self.current_connection = self.primary_connection
+        self.connection_manager = ConnectionManager(self.primary_connection)
+        self.e_connected_connection = None
+
+        # if there is a path then we make a connection
+        if len(self.path):
+            self.forward_open(*EPath)
+
+    def forward_open(self, *EPath, **kwargs):
+        class_p = EPath_item(SegmentType.LogicalSegment, LogicalType.ClassID, LogicalFormat.bit_8, 2)
+        insta_p = EPath_item(SegmentType.LogicalSegment, LogicalType.InstanceID, LogicalFormat.bit_8, 1)
+        self._fwd_rsp = self.connection_manager.forward_open(*self.path, class_p, insta_p, **kwargs)
+        self.e_connected_connection = Basic_CIP(self.trans)
+        self.e_connected_connection.set_connection(self._fwd_rsp.OT_connection_ID, self._fwd_rsp.TO_connection_ID)
+        self.current_connection = self.e_connected_connection
+
+    def _send(self, routing_type, *args, **kwargs):
+        service, *path  = args
+        if routing_type == RoutingType.ExplicitDefault or routing_type == None:
+            data = kwargs.get('data',bytes())
+            return self.current_connection.explicit_message(service, *path, data=data)
+
+        elif routing_type == RoutingType.ExplicitDirect:
+            data = kwargs.get('data',bytes())
+            return self.primary_connection.explicit_message(service, *path, data=data)
+
+        elif routing_type == RoutingType.ExplicitConnected:
+            data = kwargs.get('data',bytes())
+            return self.e_connected_connection.explicit_message(service, *path, data=data)
+
+        elif routing_type == RoutingType.ExplicitUnConnected:
+            data = kwargs.get('data',bytes())
+            message = explicit_request(service, *path, data=data)
+            return self.connection_manager.unconnected_send(message, kwargs['EPath'])
+
+    def _receive(self, routing_type, receipt):
+        if routing_type == RoutingType.ExplicitDefault or routing_type == None:
+            return self.current_connection.receive(receipt)
+
+        elif routing_type == RoutingType.ExplicitDirect:
+            return self.primary_connection.receive(receipt)
+
+        elif routing_type == RoutingType.ExplicitConnected:
+            return self.e_connected_connection.receive(receipt)
+
+        elif routing_type == RoutingType.ExplicitUnConnected:
+            return self.primary_connection.receive(receipt)
+
+    def get_attr_single(self, class_int, instance_int, attribute_int, routing_type=None, EPath=None):
+
+        class_val = EPath_item(SegmentType.LogicalSegment, LogicalType.ClassID, LogicalFormat.bit_8, class_int)
+        insta_val = EPath_item(SegmentType.LogicalSegment, LogicalType.InstanceID, LogicalFormat.bit_8, instance_int)
+        attri_val = EPath_item(SegmentType.LogicalSegment, LogicalType.AttributeID, LogicalFormat.bit_8, attribute_int)
+
+        receipt = self._send(routing_type, CIPServiceCode.get_att_single, class_val, insta_val, attri_val, EPath=None)
+        return self._receive(routing_type, receipt)
+
+    def get_attr_all(self, class_int, instance_int, routing_type=None, EPath=None):
+
+        class_val = EPath_item(SegmentType.LogicalSegment, LogicalType.ClassID, LogicalFormat.bit_8, class_int)
+        insta_val = EPath_item(SegmentType.LogicalSegment, LogicalType.InstanceID, LogicalFormat.bit_8, instance_int)
+
+        receipt = self._send(routing_type, CIPServiceCode.get_att_all, class_val, insta_val, EPath=None)
+        return self._receive(routing_type, receipt)
+
+    def set_attr_single(self, class_int, instance_int, attribute_int, data, routing_type=None, EPath=None):
+
+        class_val = EPath_item(SegmentType.LogicalSegment, LogicalType.ClassID, LogicalFormat.bit_8, class_int)
+        insta_val = EPath_item(SegmentType.LogicalSegment, LogicalType.InstanceID, LogicalFormat.bit_8, instance_int)
+        attri_val = EPath_item(SegmentType.LogicalSegment, LogicalType.AttributeID, LogicalFormat.bit_8, attribute_int)
+
+        receipt = self._send(routing_type, CIPServiceCode.set_att_single, class_val, insta_val, attri_val, data=data, EPath=None)
+        return self._receive(routing_type, receipt)
+
+class RoutingType(IntEnum):
+
+    ExplicitDefault     = 0,
+    ExplicitDirect      = 1,
+    ExplicitConnected   = 2,
+    ExplicitUnConnected = 3,
+
+    ImplicitDefault     = 4,
+    ImplicitDirect      = 5,
+    ImplicitConnected   = 6,
+    ImplicitUnConnected = 7,

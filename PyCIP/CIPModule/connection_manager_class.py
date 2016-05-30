@@ -84,8 +84,8 @@ class ConnectionManager():
         packet += port_path
 
         receipt = self.trans.explicit_message(CIPServiceCode.unconnected_Send, class_val, insta_val, data=packet, use_UCMM=False)
-        response = self.trans.receive(receipt)
-        return response
+        #response = self.trans.receive(receipt)
+        return receipt
 
 
     def forward_open(self, *connection_path, **kwargs):
