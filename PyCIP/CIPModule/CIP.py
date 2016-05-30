@@ -1,126 +1,107 @@
-
+import threading
+import queue
+import time
+from DataTypesModule.CPF import CPF_Codes
 import struct
-
 from DataTypesModule.DataTypes import *
 from DataTypesModule.DataParsers import *
+from DataTypesModule.signaling import Signaler, SignalerM2M
 from collections import OrderedDict as O_Dict
-import random
-
-class forward_open():
-
-    def __init__(self, transport, **kwargs):
-        self.trans = transport
-        self.struct = CIPDataStructure(
-                                        # CIP Responce
-                                        ('Service', 'UINT'),
-                                        ('General_Status', 'USINT'),
-                                        ('Additional_Status', 'USINT'),
-                                        # forward open rsp
-                                        ('OT_connection_ID', 'UDINT'),
-                                        ('TO_connection_ID', 'UDINT'),
-                                        ('connection_serial', 'UINT'),
-                                        ('O_vendor_ID', 'UINT'),
-                                        ('O_serial', 'UDINT'),
-                                        ('OT_API', 'UDINT'),
-                                        ('TO_API', 'UDINT'),
-                                        ('Application_Size', 'USINT'),
-                                        ('Reserved', 'USINT'),
-                                        ('Data', ['Application_Size', 'BYTE']),
-
-                                        )
-        self.packet = self.send(**kwargs)
-        if self.packet:
-            self.struct.import_data(self.packet.data)
-            self.__dict__.update(self.struct.get_dict())
-
-    def send(self, **kwargs):
-
-        path  = EPath_item(SegmentType.LogicalSegment, LogicalType.ClassID, LogicalFormat.bit_8, 6)
-        path += EPath_item(SegmentType.LogicalSegment, LogicalType.InstanceID, LogicalFormat.bit_8, 1)
-        con_mngr = struct.pack('BB', CIPServiceCode.forward_open, int(len(path)/2))
-        con_mngr += path
-
-
-        path  = EPath_item(SegmentType.LogicalSegment, LogicalType.ClassID, LogicalFormat.bit_8, 2)
-        path += EPath_item(SegmentType.LogicalSegment, LogicalType.InstanceID, LogicalFormat.bit_8, 1)
-
-        # build default fwd open parameters
-        f_struct = O_Dict()
-        f_struct['tick'] = 6
-        f_struct['time_out'] = 0x28
-        f_struct['OT_connection_ID'] = random.randrange(1, 99999)
-        f_struct['TO_connection_ID'] = self.trans.get_next_sender_context()
-        f_struct['connection_serial'] = random.randrange(0, 2^16)
-        f_struct['O_vendor_ID'] = 88
-        f_struct['O_serial'] = 12345678
-        f_struct['time_out_multiplier'] = 0
-        f_struct['reserved_1'] = 0
-        f_struct['reserved_2'] = 0
-        f_struct['reserved_3'] = 0
-        f_struct['OT_RPI'] = 0x03E7FC18
-        f_struct['OT_connection_params'] = 0x43FF
-        f_struct['TO_RPI'] = 0x03E7FC18
-        f_struct['TO_connection_params'] = 0x43FF
-        f_struct['trigger'] = 0xa3
-        f_struct['path_len'] = int(len(path)/2)
-
-        # update parameters
-        for key in f_struct.keys():
-            if key in kwargs:
-                f_struct[key] = kwargs[key]
-
-        command_specific = struct.pack('<BBIIHHIBBBBIHIHBB', *f_struct.values())
-
-        sender_context = self.trans.send_encap(con_mngr + command_specific + path, None, True)
-        return self.trans.receive_encap(sender_context)
+from CIPModule.connection_manager_class import ConnectionManager
 
 class Basic_CIP():
 
-    def __init__(self, transportLayer, connected=True, **kwargs):
+    def __init__(self, transportLayer, **kwargs):
         self.trans = transportLayer
         self.sequence_number = 1
-        self.connected = connected
+        self.connected = False
         self.OT_connection_id = None
         self.TO_connection_id = None
-        if connected:
-            self.forward_open_rsp = forward_open(self.trans, **kwargs)
-            self.OT_connection_id = self.forward_open_rsp.OT_connection_ID
-            self.TO_connection_id = self.forward_open_rsp.TO_connection_ID
+        self.active = True
+        self.transport_messenger = Signaler()
+        self.cip_messenger = SignalerM2M()
+        self._cip_manager_thread = threading.Thread(target=self._CIP_manager, args=[self.trans])
+        self._cip_manager_thread.start()
 
-    def explicit_message(self, service, *EPath, receive=True):
+    def _CIP_manager(self, trans):
+        while self.active:
+            message_structure = self.transport_messenger.get_message()
+            packet = message_structure.message
+
+            signal_id = 0
+            # UnConnected Explicit
+            if (packet.CPF[0].Type_ID == CPF_Codes.NullAddress
+            and packet.CPF[1].Type_ID == CPF_Codes.UnconnectedData):
+                message_response = MessageRouterResponseStruct_UCMM()
+                message_response.import_data(packet.data)
+                packet.CIP = message_response
+                packet.data = packet.data[packet.CIP.byte_size:]
+                signal_id = packet.encapsulation_header.Sender_Context
+                self.transport_messenger.unregister(message_structure.signal_id)
+
+            # Connected Explicit
+            elif(packet.CPF[0].Type_ID == CPF_Codes.ConnectedAddress
+            and packet.CPF[1].Type_ID == CPF_Codes.ConnectedData):
+                message_response = MessageRouterResponseStruct()
+                message_response.import_data(packet.data)
+                packet.CIP = message_response
+                packet.data = packet.data[packet.CIP.byte_size:]
+                signal_id = message_response.Sequence_Count
+
+            # Connected Implicit
+            elif(packet.CPF[0].Type_ID == CPF_Codes.SequencedAddress
+            and packet.CPF[1].Type_ID == CPF_Codes.ConnectedData):
+                print("Connected Implicit Not Supported Yet")
+                continue
+            self.cip_messenger.send_message(signal_id, packet)
+
+    def get_next_sender_context(self):
+        return self.trans.get_next_sender_context()
+
+    def set_connection(self, OT_connection_id, TO_connection_id):
+        self.connected = True
+        self.OT_connection_id = OT_connection_id
+        self.TO_connection_id = TO_connection_id
+
+    def clear_connection(self):
+        self.connected = False
+        self.OT_connection_id = None
+        self.TO_connection_id = None
+
+    def explicit_message(self, service, *EPath, data=bytes(), receive=True):
         packet = bytearray()
         if self.connected:
-            packet += struct.pack('H', self.sequence_number)
             self.sequence_number += 1
+            sequence_number = self.sequence_number
+            packet += struct.pack('H', sequence_number)
 
         packet.append(service)
-        packet.append(len(EPath))
+        EPath_bytes = bytes()
         for item in EPath:
-            packet += item
+            EPath_bytes += item
+        packet.append(len(EPath_bytes)//2)
+        packet += EPath_bytes
+        packet += data
 
         if receive:
-            receive_id = self.TO_connection_id if self.TO_connection_id else 0
+            receive_id = self.TO_connection_id if self.TO_connection_id else self.trans.get_next_sender_context()
+            # if we want the manager to be notified that this message has been responded too, we must register
+            self.transport_messenger.register(receive_id)
+            if self.connected:
+                receipt =  sequence_number
+            else:
+                receipt =  receive_id
+            self.cip_messenger.register(receipt)
         else:
             receive_id = None
 
         # SEND PACKET
         context = self.trans.send_encap(packet, self.OT_connection_id, receive_id)
 
-        if context:
-            response = self.trans.receive_encap(context)
-            if response == None:
-                return None
-            structure = []
-            if self.connected:
-                message_response = MessageRouterResponseStruct()
-            else:
-                message_response = MessageRouterResponseStruct_UCMM()
-            message_response.import_data(response.data)
-            response.CIP = message_response
-            response.data = response.data[response.CIP.byte_size:]
+        return receipt
 
-            return response
-        return None
+    def receive(self, receive_id, time_out=5):
+        return self.cip_messenger.get_message(receive_id, time_out).message
 
     def get_attr_single(self, class_int, instance_int, attribute_int):
 
@@ -128,16 +109,25 @@ class Basic_CIP():
         insta_val = EPath_item(SegmentType.LogicalSegment, LogicalType.InstanceID, LogicalFormat.bit_8, instance_int)
         attri_val = EPath_item(SegmentType.LogicalSegment, LogicalType.AttributeID, LogicalFormat.bit_8, attribute_int)
 
-        packet = self.explicit_message(CIPServiceCode.get_att_single, class_val, insta_val, attri_val)
-        return packet
+        receipt = self.explicit_message(CIPServiceCode.get_att_single, class_val, insta_val, attri_val)
+        return self.receive(receipt)
 
     def get_attr_all(self, class_int, instance_int):
 
         class_val = EPath_item(SegmentType.LogicalSegment, LogicalType.ClassID, LogicalFormat.bit_8, class_int)
         insta_val = EPath_item(SegmentType.LogicalSegment, LogicalType.InstanceID, LogicalFormat.bit_8, instance_int)
 
-        packet = self.explicit_message(CIPServiceCode.get_att_all, class_val, insta_val)
-        return packet
+        receipt = self.explicit_message(CIPServiceCode.get_att_all, class_val, insta_val)
+        return self.receive(receipt)
+
+    def set_attr_single(self, class_int, instance_int, attribute_int, data):
+
+        class_val = EPath_item(SegmentType.LogicalSegment, LogicalType.ClassID, LogicalFormat.bit_8, class_int)
+        insta_val = EPath_item(SegmentType.LogicalSegment, LogicalType.InstanceID, LogicalFormat.bit_8, instance_int)
+        attri_val = EPath_item(SegmentType.LogicalSegment, LogicalType.AttributeID, LogicalFormat.bit_8, attribute_int)
+
+        receipt = self.explicit_message(CIPServiceCode.set_att_single, class_val, insta_val, attri_val, data=data)
+        return self.receive(receipt)
 
 #vol1 ver 3.18 2-4.2
 class MessageRouterResponseStruct(CIPDataStructure):
@@ -157,3 +147,8 @@ class MessageRouterResponseStruct_UCMM(CIPDataStructure):
                                      ('Additional_Status', ['Size_of_Additional_Status', 'WORD'])
                                      ))
 
+
+class CIP_Manager():
+
+    def __init__(self, trasport, *EPath):
+        pass

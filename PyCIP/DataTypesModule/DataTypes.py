@@ -5,6 +5,7 @@ import struct
 class TransportPacket():
 
     def __init__(self, transport_meta_data=None, encapsulation_header=None, command_specific=None, CPF=None, data=None, CIP=None):
+        self.response_id = None
         self.transport_meta_data = transport_meta_data
         self.encapsulation_header = encapsulation_header
         self.command_specific = command_specific
@@ -22,6 +23,7 @@ class CIPServiceCode(IntEnum):
     set_att_single = 0x10
     get_att_all    = 0x01
     set_att_all    = 0x02
+    unconnected_Send = 0x52
     forward_open   = 0x54
 
 class SegmentType(IntEnum):
@@ -53,18 +55,35 @@ class LogicalFormat(IntEnum):
     bit_32   = 2
     Reserved = 3
 
-def EPath_item(*args):
+def EPath_item(*args, **kwargs):
     seg_type = args[0]
-    data_out = 0
+    temp_byte = 0
+    data_out = bytearray()
     if  seg_type == SegmentType.PortSegment:
-        pass
+        port = args[1]
+        link_address = args[2] # can be a list or a int
+        if hasattr(link_address, '__len__') and len(link_address) > 1:
+            temp_byte |= 1 << 4
+            data_out.append(len(link_address))
+
+        if port >= 15:
+            temp_byte |= 0x0f
+            data_out += struct.pack('H', port)
+        temp_byte |= 0x07 & port
+        data_out.insert(0, temp_byte)
+        if not isinstance(link_address, (list, tuple)):
+            link_address = [link_address]
+        data_out += bytes(link_address)
+        if len(data_out) % 2:
+            data_out += bytearray(0)
+
     elif seg_type == SegmentType.LogicalSegment:
-        data_out = 0x07 & args[0]
-        data_out = data_out << 3
-        data_out |= 0x07 & args[1]
-        data_out = data_out << 2
-        data_out |= 0x03 & args[2]
-        data_out = struct.pack('B', data_out)
+        temp_byte = 0x07 & args[0]
+        temp_byte = temp_byte << 3
+        temp_byte |= 0x07 & args[1]
+        temp_byte = temp_byte << 2
+        temp_byte |= 0x03 & args[2]
+        data_out = struct.pack('B', temp_byte)
         data_out = data_out + struct.pack('B', args[3])
 
     elif seg_type == SegmentType.NetworkSegment:
@@ -200,6 +219,7 @@ class EPATH(BaseDataParser):
         return 0
 
 CIPDataTypes = {
+    "octet": BYTE_CIP(),
     "BOOL" : BOOL_CIP(),
     "SINT" : SINT_CIP(),
     "INT"  : INT_CIP(),

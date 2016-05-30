@@ -7,7 +7,7 @@ class CIPDataStructure():
     def __init__(self, *data_tuple):
         self.structure = OrderedDict(self.global_structure)
         self.structure.update(data_tuple)
-        self.keys = list(self.structure.keys())
+        self._keys = list(self.structure.keys())
         self._struct_list = tuple(self.structure.items())
         self.byte_size = 0
         self.data = {}
@@ -26,21 +26,21 @@ class CIPDataStructure():
     def __getitem__(self, item):
         name = item
         if isinstance(item, int):
-            name = self.keys[item]
+            name = self._keys[item]
         return self.data[name]
 
     def __setitem__(self, key, value):
         name = key
         if isinstance(key, int):
-            name = self.keys[key]
+            name = self._keys[key]
         self.data[name] = value
 
     def __iter__(self):
-        for key in self.keys:
+        for key in self._keys:
             yield self.data[key]
 
     def items(self):
-        return [(key, self.data[key]) for key in self.keys]
+        return [(key, self.data[key]) for key in self._keys]
 
     def get_struct(self, index=None):
         if index:
@@ -48,7 +48,7 @@ class CIPDataStructure():
         return self._struct_list
 
     def keys(self):
-        return self.keys
+        return self._keys
 
     def import_data(self, bytes, offset=0):
         start_offset = offset

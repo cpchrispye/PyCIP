@@ -6,6 +6,7 @@ from DataTypesModule.DataParsers import CIPDataStructure
 import queue
 from DataTypesModule.CPF import *
 from .ENIPDataStructures import *
+from DataTypesModule.signaling import Signaler
 
 class ENIP_Originator():
 
@@ -18,14 +19,18 @@ class ENIP_Originator():
         self.stream_connections = []
         self.data_out_queue = queue.Queue(50)
 
-        self.response_buffer = {}
         self.ignoring_sender_context = 1
         self.internal_sender_context = 0
         self.buffer_size_per_sender_context = 5
+        self.internal_buffer = queue.Queue(self.buffer_size_per_sender_context)
         self.sender_context = self.ignoring_sender_context + 1
+        self.response_buffer = {}
+        self.response_messaging = {}
+        self.messager = Signaler()
 
         self.TCP_rcv_buffer = bytearray()
 
+        self.register_response(self.internal_sender_context, self.internal_buffer)
         self.add_stream_connection(target_port)
         self.manage_connection = True
         self.connection_thread = threading.Thread(target=self._manage_connection)
@@ -36,6 +41,16 @@ class ENIP_Originator():
             self.sender_context = self.ignoring_sender_context
         self.sender_context += 1
         return self.sender_context
+
+    def register_response(self, response_id, queue):
+        if response_id in self.response_buffer:
+            raise KeyError("registering for a response that is already being used")
+        self.response_buffer[response_id] = queue
+
+    def unregister_response(self, response_id):
+        if response_id not in self.response_buffer:
+            raise KeyError("registering for a response that is already being used")
+        self.response_buffer.pop(response_id)
 
     def add_stream_connection(self, target_port):
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -56,7 +71,7 @@ class ENIP_Originator():
     def send_encap(self, data, send_id=None, receive_id=None):
         CPF_Array = CPF_Items()
 
-        if receive_id == None:
+        if not isinstance(receive_id, int):
             receive_id = self.ignoring_sender_context
 
         if send_id != None:
@@ -70,7 +85,7 @@ class ENIP_Originator():
             command_specific = SendRRData(Interface_handle=0, Timeout=0)
             CPF_Array.append(CPF_NullAddress())
             CPF_Array.append(CPF_UnconnectedData(Length=len(data)))
-            context = self.get_next_sender_context()
+            context = receive_id
         command_specific_bytes = command_specific.export_data()
         CPF_bytes = CPF_Array.export_data()
 
@@ -146,23 +161,20 @@ class ENIP_Originator():
                         s.send(packet)
 
     def _ENIP_context_packet_mgmt(self):
+        while not self.internal_buffer.empty():
+            try:
+                packet = self.internal_buffer.get()
+            except:
+                pass
+            else:
+                if packet.encapsulation_header.Command == ENIPCommandCode.RegisterSession and self.session_handle == None:
+                    self.session_handle = packet.encapsulation_header.Session_Handle
 
-        if self.internal_sender_context in self.response_buffer:
-            buffer = self.response_buffer[self.internal_sender_context]
-            while not buffer.empty():
-                try:
-                    packet = buffer.get()
-                except:
-                    pass
-                else:
-                    if packet.encapsulation_header.Command == ENIPCommandCode.RegisterSession and self.session_handle == None:
-                        self.session_handle = packet.encapsulation_header.Session_Handle
-
-                    if packet.encapsulation_header.Command == ENIPCommandCode.UnRegisterSession:
-                        self.session_handle = None
-                        for s in self.stream_connections:
-                            s.close()
-                        self.manage_connection = False
+                if packet.encapsulation_header.Command == ENIPCommandCode.UnRegisterSession:
+                    self.session_handle = None
+                    for s in self.stream_connections:
+                        s.close()
+                    self.manage_connection = False
 
     def _import_encapsulated_rcv(self, packet, socket):
         transport = trans_metadata(socket, 'tcp')
@@ -195,9 +207,16 @@ class ENIP_Originator():
         else:
             rsp_identifier = header.Sender_Context
 
-        if rsp_identifier not in self.response_buffer:
-            self.response_buffer[rsp_identifier] = queue.Queue(self.buffer_size_per_sender_context)
-        self.response_buffer[rsp_identifier].put(parsed_packet)
+        parsed_packet.response_id = rsp_identifier
+        if header.Command in (ENIPCommandCode.SendUnitData, ENIPCommandCode.SendRRData):
+            self.messager.send_message(rsp_identifier, parsed_packet)
+
+        elif header.Command in (ENIPCommandCode.RegisterSession, ENIPCommandCode.UnRegisterSession,
+                                ENIPCommandCode.NOP, ENIPCommandCode.ListIdentity, ENIPCommandCode.ListServices):
+            self.internal_buffer.put(parsed_packet)
+
+        else:
+            print('unsupported ENIP command')
 
         del packet[:header.Length + header.header_size]
 
