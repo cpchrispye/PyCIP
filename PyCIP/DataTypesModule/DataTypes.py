@@ -98,6 +98,94 @@ def EPath_item(*args, **kwargs):
         pass
     return data_out
 
+class SegType():
+    pass
+
+class PortSegment(SegType):
+
+    def __init__(self, port=None, link_address=None, bytes_object=None):
+        self.port = port
+        self.link_address = link_address
+        self.link_address_size = 1
+        self.extended_port = False
+        self.bytes_object = bytes_object
+
+        if port != None and link_address != None:
+            self.bytes_object = self.build(port, link_address)
+
+    def build(self, port, link_address):
+        temp_byte = 0
+        data_out = bytearray()
+        if hasattr(link_address, '__len__') and len(link_address) > 1:
+            temp_byte |= 1 << 4
+            data_out.append(len(link_address))
+            self.link_address_size = len(link_address)
+        if port >= 15:
+            temp_byte |= 0x0f
+            data_out += struct.pack('H', port)
+            self.extended_port = True
+        temp_byte |= 0x07 & port
+        data_out.insert(0, temp_byte)
+        if not isinstance(link_address, (list, tuple)):
+            link_address = [link_address]
+        data_out += bytes(link_address)
+        if len(data_out) % 2:
+            data_out += bytearray(0)
+        return data_out
+
+    def export_data(self):
+        return self.build(self.port, self.link_address)
+
+    def import_data(self, data):
+        self.bytes_object = data
+
+    def __str__(self):
+        if self.port != None and self.link_address != None:
+            return "PortSegment: Port %s, Link %s, Extended %s, Address size %s" % (self.port, self.link_address,
+                                                                                    self.extended_port, self.link_address_size)
+        return "PortSegment NULL"
+
+class LogicalSegment(SegType):
+
+    def __init__(self, logical_type=None, format=None, value=None, bytes_object=None):
+        self.logical_type = logical_type
+        self.format = format
+        self.value = value
+        self.bytes_object = bytes_object
+
+        if self.logical_type != None and self.format != None and self.value != None:
+            self.bytes_object = self.build(self.logical_type, self.format, self.value)
+
+    def build(self, logical_type, format, value):
+        temp_byte = 0x07 & SegmentType.LogicalSegment
+        temp_byte = temp_byte << 3
+        temp_byte |= 0x07 & logical_type
+        temp_byte = temp_byte << 2
+        temp_byte |= 0x03 & format
+        data_out = struct.pack('B', temp_byte)
+        data_out = data_out + struct.pack('B', value)
+        return data_out
+
+    def export_data(self):
+        return self.build(self.logical_type, self.format, self.value)
+
+    def import_data(self, data):
+        self.bytes_object = data
+
+    def __str__(self):
+        if self.logical_type != None and self.format != None and self.value != None:
+            return "Logical: Type %s, format %s, value %s" % (str(LogicalType(self.logical_type)).split('.')[1],
+                                                              str(LogicalFormat(self.format)).split('.')[1],
+                                                              self.value)
+        return "LogicalSegment NULL"
+
+class EPATH(list):
+
+    def add(self, EPATH_type):
+        self.append(EPATH_type)
+
+
+
 
 class BaseDataParser():
     @staticmethod
@@ -213,10 +301,6 @@ class LWORD_CIP(BaseDataParser):
     byte_size = 8
     signed = 0
 
-class EPATH(BaseDataParser):
-    def import_data(self, data, offset=0):
-        print("Encounted EPATH Fail!!")
-        return 0
 
 CIPDataTypes = {
     "octet": BYTE_CIP(),

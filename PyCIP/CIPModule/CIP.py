@@ -164,6 +164,7 @@ class CIP_Manager():
             self.forward_open(*EPath)
 
     def forward_open(self, *EPath, **kwargs):
+        self.path = EPath
         class_p = EPath_item(SegmentType.LogicalSegment, LogicalType.ClassID, LogicalFormat.bit_8, 2)
         insta_p = EPath_item(SegmentType.LogicalSegment, LogicalType.InstanceID, LogicalFormat.bit_8, 1)
         self._fwd_rsp = self.connection_manager.forward_open(*self.path, class_p, insta_p, **kwargs)
