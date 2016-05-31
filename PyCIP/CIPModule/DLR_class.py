@@ -6,7 +6,7 @@ class DLR_Object():
     def __init__(self, transport, **kwargs):
         active_node_struct = [
             ('Device_IP_Address', 'UDINT'),
-            ('Device_MAC_Address', [6, 'USINT']),
+            ('Device_MAC_Address', MAC_CIP),
         ]
         self.class_struct = CIPDataStructure(
                 ('Revision', 'UINT')
@@ -28,12 +28,12 @@ class DLR_Object():
             ('Ring_Protocol_Participants_Count', 'UINT'),
             ('Ring_Protocol_Participants_List', ['Ring_Protocol_Participants_Count', [
                 ('Device_IP_Address', 'UDINT'),
-                ('Device_MAC_Address', [6, 'USINT'])
+                ('Device_MAC_Address', MAC_CIP)
             ]]),
             ('Ring_Faults_Count', 'UINT'),
             ('Active_Supervisor_Address', [
                 ('Device_IP_Address', 'UDINT'),
-                ('Device_MAC_Address', [6, 'USINT'])
+                ('Device_MAC_Address', MAC_CIP)
             ]),
             ('Active_Supervisor_Precedence', 'USINT'),
             ('Capability_Flags', 'DWORD'),
@@ -48,7 +48,7 @@ class DLR_Object():
             ('Redundant_Gateway_Status', 'USINT'),
             ('Active_Gateway_Address', [
                     ('Device_IP_Address', 'UDINT'),
-                    ('Device_MAC_Address', [6, 'USINT'])
+                    ('Device_MAC_Address', MAC_CIP)
                 ]
              ),
             ('Active_Gateway_Precedence', 'USINT')
@@ -63,7 +63,7 @@ class DLR_Object():
             DLR_1:(1,2,3,4,5,6,7,8,10,11),
             DLR_1_sup:(1,2),
             DLR_2:(1,2,10,12),
-            DLR_2_3_all:(1,2,3,4,5,6,7,8,10,11,12,13,14,15,16),
+            DLR_2_3_all:(1,2,3,4,5,6,7,8,10,11,12),
             DLR_3_gat:(1,2,3,4,5,6,7,8,10,11,12,13,14,15,16)
         }
 
@@ -84,4 +84,7 @@ class DLR_Object():
 
         if rsp.CIP.General_Status == 0:
             self.struct.import_data(rsp.data)
+
+    def pprint(self):
+        print('\n'.join(self.struct.pprint()))
 

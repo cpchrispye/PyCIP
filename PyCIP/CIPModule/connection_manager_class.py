@@ -88,17 +88,13 @@ class ConnectionManager():
         return receipt
 
 
-    def forward_open(self, *connection_path, **kwargs):
+    def forward_open(self, EPath, **kwargs):
 
-        class_val = EPath_item(SegmentType.LogicalSegment, LogicalType.ClassID, LogicalFormat.bit_8, 6)
-        insta_val = EPath_item(SegmentType.LogicalSegment, LogicalType.InstanceID, LogicalFormat.bit_8, 1)
+        message_router_path = EPATH()
+        message_router_path.append(LogicalSegment(LogicalType.ClassID, LogicalFormat.bit_8, 6))
+        message_router_path.append(LogicalSegment(LogicalType.InstanceID, LogicalFormat.bit_8, 1))
 
-        #path  = EPath_item(SegmentType.LogicalSegment, LogicalType.ClassID, LogicalFormat.bit_8, 2)
-        #path += EPath_item(SegmentType.LogicalSegment, LogicalType.InstanceID, LogicalFormat.bit_8, 1)
-
-        connection_path_bytes = bytes()
-        for item in connection_path:
-            connection_path_bytes += item
+        connection_path_bytes = EPath.export_data()
 
         # build default fwd open parameters
         self.struct_fwd_open_send.tick = 6
@@ -126,8 +122,9 @@ class ConnectionManager():
 
         command_specific = self.struct_fwd_open_send.export_data()
 
-        receipt = self.trans.explicit_message(CIPServiceCode.forward_open, class_val, insta_val, data=(command_specific + connection_path_bytes))
+        receipt = self.trans.explicit_message(CIPServiceCode.forward_open, message_router_path, data=(command_specific + connection_path_bytes))
         response = self.trans.receive(receipt)
         if response and response.CIP.General_Status == 0:
             self.struct_fwd_open_rsp.import_data(response.data)
             return self.struct_fwd_open_rsp
+        return None

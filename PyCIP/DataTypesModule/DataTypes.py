@@ -1,7 +1,6 @@
 from enum import IntEnum
 import struct
 
-
 class TransportPacket():
 
     def __init__(self, transport_meta_data=None, encapsulation_header=None, command_specific=None, CPF=None, data=None, CIP=None):
@@ -99,9 +98,11 @@ def EPath_item(*args, **kwargs):
     return data_out
 
 class SegType():
+    type_code = None
     pass
 
 class PortSegment(SegType):
+    type_code = SegmentType.PortSegment
 
     def __init__(self, port=None, link_address=None, bytes_object=None):
         self.port = port
@@ -111,7 +112,7 @@ class PortSegment(SegType):
         self.bytes_object = bytes_object
 
         if port != None and link_address != None:
-            self.bytes_object = self.build(port, link_address)
+            self.bytes_object = self.export_data(port, link_address)
 
     def build(self, port, link_address):
         temp_byte = 0
@@ -131,12 +132,16 @@ class PortSegment(SegType):
         data_out += bytes(link_address)
         if len(data_out) % 2:
             data_out += bytearray(0)
+        self.bytes_object = data_out
         return data_out
 
-    def export_data(self):
+    def export_data(self, port=None, link_address=None):
+        self.port         =         port if port != None         else self.port
+        self.link_address = link_address if link_address != None else self.link_address
+
         return self.build(self.port, self.link_address)
 
-    def import_data(self, data):
+    def import_data(self, data, offset=0):
         self.bytes_object = data
 
     def __str__(self):
@@ -146,30 +151,58 @@ class PortSegment(SegType):
         return "PortSegment NULL"
 
 class LogicalSegment(SegType):
+    type_code = SegmentType.LogicalSegment
 
-    def __init__(self, logical_type=None, format=None, value=None, bytes_object=None):
+    def __init__(self, logical_type=None, format=None, value=None, extended=None, bytes_object=None):
         self.logical_type = logical_type
         self.format = format
         self.value = value
+        self.extended = extended
         self.bytes_object = bytes_object
 
         if self.logical_type != None and self.format != None and self.value != None:
-            self.bytes_object = self.build(self.logical_type, self.format, self.value)
+            self.bytes_object = self.export_data(self.logical_type, self.format, self.value, extended=self.extended)
 
-    def build(self, logical_type, format, value):
+    def build(self, logical_type, format, value, extended=None):
+        data_out = bytearray()
         temp_byte = 0x07 & SegmentType.LogicalSegment
         temp_byte = temp_byte << 3
         temp_byte |= 0x07 & logical_type
         temp_byte = temp_byte << 2
         temp_byte |= 0x03 & format
         data_out = struct.pack('B', temp_byte)
-        data_out = data_out + struct.pack('B', value)
+        if logical_type == LogicalType.Special:
+            data_out += struct.pack('B', value.version)
+            data_out += value.export_data()
+            self.bytes_object = data_out
+            return data_out
+
+        if logical_type == LogicalType.ExtendedLogical:
+            if extended == None : raise ValueError("No extended value provided")
+            data_out.append(extended)
+        if format == LogicalFormat.bit_8:
+            data_out += struct.pack('B', value)
+        elif format == LogicalFormat.bit_16:
+            data_out += struct.pack('H', value)
+        elif format == LogicalFormat.bit_32:
+            if (logical_type in (LogicalType.InstanceID, LogicalType.ConnectionPoint)
+            or extended in (1, 3, 5, 6)):
+                data_out += struct.pack('I', value)
+            else:
+                raise ValueError("Invalid logical extended type for 32 bit format")
+        else:
+            raise ValueError("Invalid format parameter")
+        self.bytes_object = data_out
         return data_out
 
-    def export_data(self):
-        return self.build(self.logical_type, self.format, self.value)
+    def export_data(self, logical_type=None, format=None, value=None, extended=None):
+        self.logical_type   = not_none(logical_type, self.logical_type)
+        self.format         = not_none(format, self.format)
+        self.value          = not_none(value, self.value)
+        self.extended       = not_none(extended, self.extended)
+        return self.build(self.logical_type, self.format, self.value, extended=self.extended)
 
-    def import_data(self, data):
+    def import_data(self, data, offset=0):
         self.bytes_object = data
 
     def __str__(self):
@@ -179,10 +212,50 @@ class LogicalSegment(SegType):
                                                               self.value)
         return "LogicalSegment NULL"
 
+
+
+
+
 class EPATH(list):
 
-    def add(self, EPATH_type):
-        self.append(EPATH_type)
+    def add(self, *args, **kwargs):
+        seg_type, *args = args
+        if seg_type == SegmentType.PortSegment:
+            item = PortSegment(*args, **kwargs)
+        elif seg_type == SegmentType.LogicalSegment:
+            item = LogicalSegment(*args, **kwargs)
+        else:
+            raise TypeError("segment type not supported")
+        self.append(item)
+
+    def export_data(self):
+        data_out = bytearray()
+        for e_item in self:
+            data_out += e_item.export_data()
+        return data_out
+
+    def import_data(self, data, length, offset=0):
+        index = offset
+        while index < length + offset:
+            seg_type = data[index]
+            for sub in SegType.__subclasses__():
+                if sub.type_code == seg_type:
+                    segment = sub()
+                    index += segment.import_data(data,
+                                                 )
+                    self.append(segment)
+                    break
+            else:
+                raise ValueError("Value not a acceptable segment: " + str(seg_type))
+        return index - offset
+
+
+
+def not_none(primary, secondary):
+    return primary if primary != None else secondary
+
+
+
 
 
 
@@ -248,6 +321,30 @@ class ShortStringDataParser():
         string_parsed = section.decode('iso-8859-1')
         utf_encoded = string_parsed.encode('utf-8')
         return utf_encoded
+
+class MAC_CIP(BaseDataParser):
+    byte_size = 6
+    def __init__(self):
+        self.val = []
+        pass
+
+    def import_data(self, data, offset=0):
+        for i in range(0,6):
+            self.val.append(data[offset + i])
+        return self
+
+    def export_data(self):
+        out = bytearray()
+        for v in self.val:
+            out += v.to_bytes(1, 'little', signed=False)
+        return out
+
+    def __str__(self):
+        if len(self.val) == 6:
+            return "%02x:%02x:%02x:%02x:%02x:%02x" % tuple(self.val)
+        else:
+            return "%02x:%02x:%02x:%02x:%02x:%02x" % (0,0,0,0,0,0)
+
 
 class BOOL_CIP(BaseDataParser):
     byte_size = 1

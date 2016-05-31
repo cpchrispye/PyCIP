@@ -4,13 +4,14 @@ from collections import OrderedDict
 class CIPDataStructure():
     global_structure = OrderedDict()
 
-    def __init__(self, *data_tuple):
+    def __init__(self, *data_tuple, **initial_values):
         self.structure = OrderedDict(self.global_structure)
         self.structure.update(data_tuple)
         self._keys = list(self.structure.keys())
         self._struct_list = tuple(self.structure.items())
         self.byte_size = 0
         self.data = {}
+        self.set_values(initial_values)
 
     def __getattr__(self, item):
         if item in self.structure:
@@ -39,6 +40,10 @@ class CIPDataStructure():
         for key in self._keys:
             yield self.data[key]
 
+    def set_values(self, dict_vals):
+        for k, v in dict_vals.items():
+            self.__setattr__(k, v)
+
     def items(self):
         return [(key, self.data[key]) for key in self._keys]
 
@@ -57,6 +62,9 @@ class CIPDataStructure():
                 # see if string representation of type is used
                 if isinstance(val, str):
                     val = CIPDataTypes[val]
+                # check to see if object need instantiating
+                if val.__class__ == type:
+                    val = val()
                 # see if the type can parse
                 self.data[key] = val.import_data(bytes, offset)
                 offset += val.byte_size
@@ -98,10 +106,28 @@ class CIPDataStructure():
     def get_dict(self):
         return self.data
 
+    def pprint(self):
+        string_list = []
+        for key, val in self.items():
+            try:
+
+                tmp = ['\t' + x for x in val.pprint()]
+                string_list.append("%s:-" % key)
+                string_list += tmp
+            except AttributeError:
+                string_list.append("%s: %s" % (key, val))
+        return string_list
 
 
+class KeySegment_v4(CIPDataStructure):
+    version = 4
+    global_structure = OrderedDict((
+                                    ('Vendor_ID', 'UINT'),
+                                    ('Device_Type', 'UINT'),
+                                    ('Product_Code', 'UINT'),
+                                    ('Major_Revision', 'BYTE'),
+                                    ('Minor_Revision', 'USINT'),
 
-
-
+                                    ))
 
 
