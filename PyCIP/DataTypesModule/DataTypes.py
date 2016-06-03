@@ -299,12 +299,31 @@ class StringDataParser():
 
         self.byte_size = offset + (self.char_size * string_size)
 
+        if(string_size % 2):
+            self.byte_size += 1
+
         if self.char_size == 1:
-            return section.decode('iso-8859-1').encode('utf-8')
+            return section.decode('iso-8859-1')
         elif self.char_size > 1:
-            return bytes.decode('utf-8').encode('utf-8')
+            return bytes.decode('utf-8')
         else:
             return u'Error: Incorrect character size defined'
+
+    def export_data(self, string):
+        length = len(string)
+        out = struct.pack('H', length)
+        if self.char_size == 1:
+            out += string.encode('iso-8859-1')
+        elif self.char_size > 1:
+            out += string.encode('utf-8')
+        else:
+            return u'Error: Incorrect character size defined'
+
+        if(length % 2):
+            out += bytes(1)
+        return out
+
+
 
 class ShortStringDataParser():
 
