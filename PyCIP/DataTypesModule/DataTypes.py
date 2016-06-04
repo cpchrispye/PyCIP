@@ -212,6 +212,46 @@ class LogicalSegment(SegType):
                                                               self.value)
         return "LogicalSegment NULL"
 
+class DataSegment(SegType):
+    type_code = SegmentType.DataSegment
+
+    def __init__(self, type=None,  value=None, bytes_object=None):
+        self.type = type
+        self.value = value
+        self.bytes_object = bytes_object
+
+        if self.type != None and self.value != None:
+            self.bytes_object = self.export_data(self.type, self.value)
+
+    def build(self, type, value, extended=None):
+        data_out = bytearray()
+        temp_byte = 0x07 & SegmentType.DataSegment
+        temp_byte = temp_byte << 5
+        temp_byte |= 0x17 & type
+        data_out.append(temp_byte)
+        length = len(value)//2
+        if length <= 255:
+            data_out.append(length)
+            data_out += value
+        else:
+            raise IndexError("data too large")
+        return data_out
+
+    def export_data(self, type=None, value=None):
+        self.type   = not_none(type, self.type)
+        self.value          = not_none(value, self.value)
+
+        return self.build(self.type, self.value)
+
+    def import_data(self, data, offset=0):
+        self.bytes_object = data
+
+    def __str__(self):
+        if self.logical_type != None and self.format != None and self.value != None:
+            return "Logical: Type %s, format %s, value %s" % (str(LogicalType(self.logical_type)).split('.')[1],
+                                                              str(LogicalFormat(self.format)).split('.')[1],
+                                                              self.value)
+        return "LogicalSegment NULL"
 
 
 
@@ -338,8 +378,8 @@ class ShortStringDataParser():
         self.byte_size = offset + (self.char_size * string_size)
 
         string_parsed = section.decode('iso-8859-1')
-        utf_encoded = string_parsed.encode('utf-8')
-        return utf_encoded
+        #utf_encoded = string_parsed.encode('utf-8')
+        return string_parsed
 
 class MAC_CIP(BaseDataParser):
     byte_size = 6

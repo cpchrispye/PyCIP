@@ -20,7 +20,7 @@ class Basic_CIP():
         self._cip_manager_thread.start()
 
     def _CIP_manager(self, trans):
-        while self.active:
+        while self.active and self.trans.connected:
             message_structure = self.transport_messenger.get_message()
             packet = message_structure.message
 
@@ -51,6 +51,7 @@ class Basic_CIP():
                 continue
             self.cip_messenger.send_message(signal_id, packet)
 
+        return None
     def get_next_sender_context(self):
         return self.trans.get_next_sender_context()
 
@@ -161,11 +162,14 @@ class CIP_Manager():
         if len(self.path):
             self.forward_open(*EPath)
 
-    def forward_open(self, EPath=EPATH(), **kwargs):
-        self.path = EPath
-        EPath.append(LogicalSegment(LogicalType.ClassID, LogicalFormat.bit_8, 2))
-        EPath.append(LogicalSegment(LogicalType.InstanceID, LogicalFormat.bit_8, 1))
-        self._fwd_rsp = self.connection_manager.forward_open(EPath, **kwargs)
+    def forward_open(self, EPath=None, **kwargs):
+        if EPath == None:
+            self.path = EPATH()
+            self.path.append(LogicalSegment(LogicalType.ClassID, LogicalFormat.bit_8, 2))
+            self.path.append(LogicalSegment(LogicalType.InstanceID, LogicalFormat.bit_8, 1))
+        else:
+            self.path = EPath
+        self._fwd_rsp = self.connection_manager.forward_open(self.path, **kwargs)
         if self._fwd_rsp:
             self.e_connected_connection = Basic_CIP(self.trans)
             self.e_connected_connection.set_connection(self._fwd_rsp.OT_connection_ID, self._fwd_rsp.TO_connection_ID)
