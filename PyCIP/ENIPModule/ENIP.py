@@ -15,42 +15,36 @@ class ENIP_Originator():
         self.target = target_ip
         self.port   = target_port
         self.session_handle = None
+        self.keep_alive_rate_s = 60
 
         self.stream_connections = []
-        self.data_out_queue = queue.Queue(50)
+        self.datagram_connections = []
+        self.class2_3_out_queue = queue.Queue(50)
+        self.class0_1_out_queue = queue.Queue(50)
 
         self.ignoring_sender_context = 1
         self.internal_sender_context = 0
         self.buffer_size_per_sender_context = 5
         self.internal_buffer = queue.Queue(self.buffer_size_per_sender_context)
         self.sender_context = self.ignoring_sender_context + 1
-        self.response_buffer = {}
-        self.response_messaging = {}
         self.messager = Signaler()
 
-        self.TCP_rcv_buffer = bytearray()
+        #self.TCP_rcv_buffer = bytearray()
 
-        self.register_response(self.internal_sender_context, self.internal_buffer)
         self.add_stream_connection(target_port)
         self.manage_connection = True
         self.connection_thread = threading.Thread(target=self._manage_connection)
         self.connection_thread.start()
+
+    @property
+    def connected(self):
+        return self.manage_connection
 
     def get_next_sender_context(self):
         if self.sender_context >= 10000:
             self.sender_context = self.ignoring_sender_context
         self.sender_context += 1
         return self.sender_context
-
-    def register_response(self, response_id, queue):
-        if response_id in self.response_buffer:
-            raise KeyError("registering for a response that is already being used")
-        self.response_buffer[response_id] = queue
-
-    def unregister_response(self, response_id):
-        if response_id not in self.response_buffer:
-            raise KeyError("registering for a response that is already being used")
-        self.response_buffer.pop(response_id)
 
     def add_stream_connection(self, target_port):
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -59,14 +53,12 @@ class ENIP_Originator():
         s.setblocking(0)
         self.stream_connections.append(s)
 
-    def receive_encap(self, context, time_out_ms=5000):
-        sleep_period = 0.005
-        while time_out_ms > 0:
-            if context in self.response_buffer and not self.response_buffer[context].empty():
-                return self.response_buffer[context].get()
-            time.sleep(sleep_period)
-            time_out_ms -= sleep_period * 1000
-        return None
+    def add_datagram_connection(self, target_port=2222):
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.settimeout(3)
+        s.connect((self.target, target_port))
+        s.setblocking(0)
+        self.datagram_connections.append(s)
 
     def send_encap(self, data, send_id=None, receive_id=None):
         CPF_Array = CPF_Items()
@@ -106,7 +98,7 @@ class ENIP_Originator():
         return context
 
     def _send_encap(self, packet):
-        self.data_out_queue.put(packet)
+        self.class2_3_out_queue.put(packet)
 
     def register_session(self):
         command_specific = RegisterSession(Protocol_version=1, Options_flags=0)
@@ -129,32 +121,87 @@ class ENIP_Originator():
                 for s in self.stream_connections:
                     s.close()
                 self.manage_connection = False
-                break
+                return False
+        return True
 
+    def unregister_session(self):
+        encap_header = ENIPEncapsulationHeader(ENIPCommandCode.UnRegisterSession,
+                                               0,
+                                               0,
+                                               0,
+                                               0,
+                                               0,
+                                               )
+        self._send_encap(encap_header.export_data())
+        time.sleep(0.2)
+        self.manage_connection = False
+
+    def NOP(self):
+        header = ENIPEncapsulationHeader(ENIPCommandCode.NOP, 0, self.session_handle,  0, 0, 0)
+        self._send_encap(header.export_data())
+
+    # this ideally will use asyncio to manage connections
     def _manage_connection(self):
+        self.TCP_rcv_buffers = {}
+        delay = 0.001
+        time_out = time.time() + self.keep_alive_rate_s * 0.5
         while self.manage_connection:
-            # sessions may run over multiply TCP connections
+            self._class0_1_send_rcv()
             self._class2_3_send_rcv()
             self._ENIP_context_packet_mgmt()
-            time.sleep(0.001)
+            # keep alive the connection from timing out
+            if time.time() > time_out:
+                time_out = time.time() + self.keep_alive_rate_s * 0.9
+                self.NOP()
+            time.sleep(delay)
+
+        # close all connections if no longer active
+        self.session_handle = None
+        for s in (self.stream_connections + self.datagram_connections):
+            s.close()
+        return None
+
 
     def _class2_3_send_rcv(self):
 
         for s in self.stream_connections:
+            buffer = self.TCP_rcv_buffers.get(s, bytearray())
+            # receive
+            try:
+                buffer += s.recv(65535)
+            except BlockingIOError:
+                pass
+
+            if len(buffer):
+                # all data from tcp stream will be encapsulated
+                self._import_encapsulated_rcv(buffer, s)
+
+            # send
+            while not self.class2_3_out_queue.empty():
+                try:
+                    packet = self.class2_3_out_queue.get()
+                except:
+                    pass
+                else:
+                    s.send(packet)
+
+    def _class0_1_send_rcv(self):
+
+        for s in self.datagram_connections:
                 # receive
                 try:
-                    self.TCP_rcv_buffer += s.recv(65535)
+                    datagram_packet = s.recv(65535)
                 except BlockingIOError:
                     pass
 
-                if len(self.TCP_rcv_buffer):
+                if len(datagram_packet):
                     # all data from tcp stream will be encapsulated
-                    self._import_encapsulated_rcv(self.TCP_rcv_buffer, s)
+                    self._import_IO_rcv(datagram_packet, s)
 
                 # send
-                while not self.data_out_queue.empty():
+                while not self.class0_1_out_queue.empty():
                     try:
-                        packet = self.data_out_queue.get()
+                        packet = self.class0_1_out_queue.get()
                     except:
                         pass
                     else:
@@ -171,9 +218,6 @@ class ENIP_Originator():
                     self.session_handle = packet.encapsulation_header.Session_Handle
 
                 if packet.encapsulation_header.Command == ENIPCommandCode.UnRegisterSession:
-                    self.session_handle = None
-                    for s in self.stream_connections:
-                        s.close()
                     self.manage_connection = False
 
     def _import_encapsulated_rcv(self, packet, socket):
@@ -219,6 +263,33 @@ class ENIP_Originator():
             print('unsupported ENIP command')
 
         del packet[:header.Length + header.header_size]
+
+    def _import_IO_rcv(self, packet, socket):
+        transport = trans_metadata(socket, 'udp')
+        packet_length = len(packet)
+        if packet_length <= 6:
+            return None
+
+        CPF_Array = CPF_Items()
+        offset = CPF_Array.import_data(packet)
+
+        parsed_packet = TransportPacket( transport,
+                                         None,
+                                         None,
+                                         CPF_Array,
+                                         data=packet[offset:packet_length]
+                                        )
+
+        if len(CPF_Array) and  CPF_Array[0].Type_ID == CPF_Codes.SequencedAddress:
+            rsp_identifier = CPF_Array[0].Connection_Identifier
+        else:
+            return None
+
+        parsed_packet.response_id = rsp_identifier
+        self.messager.send_message(rsp_identifier, parsed_packet)
+
+    def __del__(self):
+        self.unregister_session()
 
 class trans_metadata():
 
