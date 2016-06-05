@@ -5,7 +5,7 @@ class DLR_Object():
 
     def __init__(self, transport, **kwargs):
         active_node_struct = [
-            ('Device_IP_Address', 'UDINT'),
+            ('Device_IP_Address', IPAddress_CIP),
             ('Device_MAC_Address', MAC_CIP),
         ]
         self.class_struct = CIPDataStructure(
@@ -27,12 +27,12 @@ class DLR_Object():
             ('Last_Active_Node_on_Port_2', active_node_struct),
             ('Ring_Protocol_Participants_Count', 'UINT'),
             ('Ring_Protocol_Participants_List', ['Ring_Protocol_Participants_Count', [
-                ('Device_IP_Address', 'UDINT'),
+                ('Device_IP_Address', IPAddress_CIP),
                 ('Device_MAC_Address', MAC_CIP)
             ]]),
             ('Ring_Faults_Count', 'UINT'),
             ('Active_Supervisor_Address', [
-                ('Device_IP_Address', 'UDINT'),
+                ('Device_IP_Address', IPAddress_CIP),
                 ('Device_MAC_Address', MAC_CIP)
             ]),
             ('Active_Supervisor_Precedence', 'USINT'),

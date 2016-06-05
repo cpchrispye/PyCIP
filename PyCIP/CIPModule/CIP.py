@@ -1,9 +1,12 @@
-import threading
-from DataTypesModule.CPF import CPF_Codes
-from DataTypesModule.DataParsers import *
-from DataTypesModule.signaling import Signaler, SignalerM2M
-from CIPModule.connection_manager_class import ConnectionManager
+from threading import Thread
+#from multiprocessing import Process as Thread
 from enum import IntEnum
+from CIPModule.connection_manager_class import ConnectionManager
+from DataTypesModule import *
+from collections import OrderedDict
+from Tools.signaling import Signaler, SignalerM2M
+import struct
+
 
 class Basic_CIP():
 
@@ -16,12 +19,14 @@ class Basic_CIP():
         self.active = True
         self.transport_messenger = Signaler()
         self.cip_messenger = SignalerM2M()
-        self._cip_manager_thread = threading.Thread(target=self._CIP_manager, args=[self.trans])
+        self._cip_manager_thread = Thread(target=self._CIP_manager, args=[self.trans], name="cip_layer")
         self._cip_manager_thread.start()
 
     def _CIP_manager(self, trans):
         while self.active and self.trans.connected:
-            message_structure = self.transport_messenger.get_message()
+            message_structure = self.transport_messenger.get_message(0.1)
+            if message_structure == None:
+                continue
             packet = message_structure.message
 
             signal_id = 0
@@ -92,33 +97,12 @@ class Basic_CIP():
         return receipt
 
     def receive(self, receive_id, time_out=5):
-        return self.cip_messenger.get_message(receive_id, time_out).message
+        message = self.cip_messenger.get_message(receive_id, time_out)
+        if message:
+            return message.message
+        else:
+            return None
 
-    def get_attr_single(self, class_int, instance_int, attribute_int):
-
-        class_val = EPath_item(SegmentType.LogicalSegment, LogicalType.ClassID, LogicalFormat.bit_8, class_int)
-        insta_val = EPath_item(SegmentType.LogicalSegment, LogicalType.InstanceID, LogicalFormat.bit_8, instance_int)
-        attri_val = EPath_item(SegmentType.LogicalSegment, LogicalType.AttributeID, LogicalFormat.bit_8, attribute_int)
-
-        receipt = self.explicit_message(CIPServiceCode.get_att_single, class_val, insta_val, attri_val)
-        return self.receive(receipt)
-
-    def get_attr_all(self, class_int, instance_int):
-
-        class_val = EPath_item(SegmentType.LogicalSegment, LogicalType.ClassID, LogicalFormat.bit_8, class_int)
-        insta_val = EPath_item(SegmentType.LogicalSegment, LogicalType.InstanceID, LogicalFormat.bit_8, instance_int)
-
-        receipt = self.explicit_message(CIPServiceCode.get_att_all, class_val, insta_val)
-        return self.receive(receipt)
-
-    def set_attr_single(self, class_int, instance_int, attribute_int, data):
-
-        class_val = EPath_item(SegmentType.LogicalSegment, LogicalType.ClassID, LogicalFormat.bit_8, class_int)
-        insta_val = EPath_item(SegmentType.LogicalSegment, LogicalType.InstanceID, LogicalFormat.bit_8, instance_int)
-        attri_val = EPath_item(SegmentType.LogicalSegment, LogicalType.AttributeID, LogicalFormat.bit_8, attribute_int)
-
-        receipt = self.explicit_message(CIPServiceCode.set_att_single, class_val, insta_val, attri_val, data=data)
-        return self.receive(receipt)
 
 #vol1 ver 3.18 2-4.2
 class MessageRouterResponseStruct(CIPDataStructure):

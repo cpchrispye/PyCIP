@@ -1,3 +1,4 @@
+#import DataTypesModule
 from .DataTypes import *
 from .DataParsers import *
 from abc import abstractmethod, ABCMeta

@@ -1,4 +1,5 @@
-import queue
+#from multiprocessing import Queue
+from queue import Queue, Empty
 
 class Signaler():
     signal_subscriber_table = {}
@@ -7,7 +8,7 @@ class Signaler():
     def __init__(self):
         self.id = self.instance_id
         self.instance_id += 1
-        self.message_queue = queue.Queue()
+        self.message_queue = Queue()
 
     def register(self, signal_id):
         if signal_id not in self.signal_subscriber_table:
@@ -28,7 +29,10 @@ class Signaler():
             sub.put(message_s)
 
     def get_message(self,time_out=None):
-        return self.message_queue.get(True, time_out)
+        try:
+            return self.message_queue.get(True, time_out)
+        except Empty:
+            return None
 
 class SignalerM2M():
     signal_message_table = {}
@@ -40,7 +44,7 @@ class SignalerM2M():
 
     def register(self, signal_id):
         if signal_id not in self.signal_message_table:
-            self.signal_message_table[signal_id] = queue.Queue()
+            self.signal_message_table[signal_id] = Queue()
 
     def unregister(self, signal_id):
         del self.signal_message_table[signal_id]
@@ -50,7 +54,10 @@ class SignalerM2M():
         self.signal_message_table[signal_id].put(message_s)
 
     def get_message(self, signal_id, time_out=None):
-        return self.signal_message_table[signal_id].get(True, time_out)
+        try:
+            return self.signal_message_table[signal_id].get(True, time_out)
+        except Empty:
+            return None
 
 
 class MessageStruct():

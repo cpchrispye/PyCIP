@@ -1,41 +1,38 @@
-import threading
+#from multiprocessing import Queue
+from queue import Queue
 import socket
+from threading import Thread
+#from multiprocessing import Process as Thread
 import time
-import struct
-from DataTypesModule.DataParsers import CIPDataStructure
-import queue
-from DataTypesModule.CPF import *
+import DataTypesModule as DT
+from Tools.signaling import Signaler
 from .ENIPDataStructures import *
-from DataTypesModule.signaling import Signaler
+
 
 class ENIP_Originator():
 
-    def __init__(self, target_ip, target_port=44818):
+    def __init__(self, target_ip=None, target_port=44818):
 
         self.target = target_ip
         self.port   = target_port
         self.session_handle = None
         self.keep_alive_rate_s = 60
 
-        self.stream_connections = []
-        self.datagram_connections = []
-        self.class2_3_out_queue = queue.Queue(50)
-        self.class0_1_out_queue = queue.Queue(50)
+        self.stream_connection = None
+        self.datagram_connection = None
+        self.class2_3_out_queue = Queue(50)
+        self.class0_1_out_queue = Queue(50)
 
         self.ignoring_sender_context = 1
         self.internal_sender_context = 0
-        self.buffer_size_per_sender_context = 5
-        self.internal_buffer = queue.Queue(self.buffer_size_per_sender_context)
+        self.internal_buffer = []
         self.sender_context = self.ignoring_sender_context + 1
         self.messager = Signaler()
+        self.connection_thread = None
 
         #self.TCP_rcv_buffer = bytearray()
-
-        self.add_stream_connection(target_port)
-        self.manage_connection = True
-        self.connection_thread = threading.Thread(target=self._manage_connection)
-        self.connection_thread.start()
-
+        if target_ip != None:
+            self.create_class_2_3(target_ip, target_port)
     @property
     def connected(self):
         return self.manage_connection
@@ -46,22 +43,36 @@ class ENIP_Originator():
         self.sender_context += 1
         return self.sender_context
 
-    def add_stream_connection(self, target_port):
+    def start(self):
+        self.manage_connection = True
+        if self.connection_thread == None:
+            self.connection_thread = Thread(target=self._manage_connection, name="Enip_layer")
+        if not self.connection_thread.is_alive():
+            self.connection_thread.start()
+
+    def stop(self):
+        self.manage_connection = False
+
+    def create_class_2_3(self, target_ip, target_port=44818):
+        self.target = target_ip
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.settimeout(3)
         s.connect((self.target, target_port))
         s.setblocking(0)
-        self.stream_connections.append(s)
+        self.stream_connection = s
+        self.start()
 
-    def add_datagram_connection(self, target_port=2222):
+    def create_class_0_1(self, target_ip, target_port=2222):
+        self.target = target_ip
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s.settimeout(3)
         s.connect((self.target, target_port))
         s.setblocking(0)
-        self.datagram_connections.append(s)
+        self.datagram_connection = s
+        self.start()
 
     def send_encap(self, data, send_id=None, receive_id=None):
-        CPF_Array = CPF_Items()
+        CPF_Array = DT.CPF_Items()
 
         if not isinstance(receive_id, int):
             receive_id = self.ignoring_sender_context
@@ -69,14 +80,14 @@ class ENIP_Originator():
         if send_id != None:
             cmd_code = ENIPCommandCode.SendUnitData
             command_specific = SendUnitData(Interface_handle=0, Timeout=0)
-            CPF_Array.append(CPF_ConnectedAddress(Connection_Identifier=send_id))
-            CPF_Array.append(CPF_ConnectedData(Length=len(data)))
+            CPF_Array.append(DT.CPF_ConnectedAddress(Connection_Identifier=send_id))
+            CPF_Array.append(DT.CPF_ConnectedData(Length=len(data)))
             context = receive_id
         else:
             cmd_code = ENIPCommandCode.SendRRData
             command_specific = SendRRData(Interface_handle=0, Timeout=0)
-            CPF_Array.append(CPF_NullAddress())
-            CPF_Array.append(CPF_UnconnectedData(Length=len(data)))
+            CPF_Array.append(DT.CPF_NullAddress())
+            CPF_Array.append(DT.CPF_UnconnectedData(Length=len(data)))
             context = receive_id
         command_specific_bytes = command_specific.export_data()
         CPF_bytes = CPF_Array.export_data()
@@ -118,7 +129,7 @@ class ENIP_Originator():
             time.sleep(time_sleep)
             timeout -= time_sleep
             if timeout <= 0:
-                for s in self.stream_connections:
+                for s in self.stream_connection:
                     s.close()
                 self.manage_connection = False
                 return False
@@ -134,11 +145,40 @@ class ENIP_Originator():
                                                )
         self._send_encap(encap_header.export_data())
         time.sleep(0.2)
-        self.manage_connection = False
+        self.stop()
 
     def NOP(self):
         header = ENIPEncapsulationHeader(ENIPCommandCode.NOP, 0, self.session_handle,  0, 0, 0)
         self._send_encap(header.export_data())
+
+    @staticmethod
+    def list_identity(target_ip='255.255.255.255', target_port=44818, udp=True):
+        if udp:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        else:
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.connect((target_ip, target_port))
+        s.setblocking(0)
+        delay = 100
+        header = ENIPEncapsulationHeader(ENIPCommandCode.ListIdentity, 0, 0, 0, delay, 0)
+        s.send(header.export_data())
+        time.sleep(1.1*delay/1000)
+        try:
+            packet = s.recv(65535)
+        except BlockingIOError:
+            return None
+
+        if len(packet) < 42:
+            return None
+        rsp_header = ENIPEncapsulationHeader()
+        offset = rsp_header.import_data(packet)
+        return rsp_header
+
+
+
+
+
+
 
     # this ideally will use asyncio to manage connections
     def _manage_connection(self):
@@ -157,14 +197,13 @@ class ENIP_Originator():
 
         # close all connections if no longer active
         self.session_handle = None
-        for s in (self.stream_connections + self.datagram_connections):
+        for s in (self.stream_connection, self.datagram_connection):
             s.close()
         return None
 
-
     def _class2_3_send_rcv(self):
-
-        for s in self.stream_connections:
+        s = self.stream_connection
+        if s != None:
             buffer = self.TCP_rcv_buffers.get(s, bytearray())
             # receive
             try:
@@ -187,7 +226,8 @@ class ENIP_Originator():
 
     def _class0_1_send_rcv(self):
 
-        for s in self.datagram_connections:
+        s = self.datagram_connection
+        if s != None:
                 # receive
                 try:
                     datagram_packet = s.recv(65535)
@@ -208,17 +248,13 @@ class ENIP_Originator():
                         s.send(packet)
 
     def _ENIP_context_packet_mgmt(self):
-        while not self.internal_buffer.empty():
-            try:
-                packet = self.internal_buffer.get()
-            except:
-                pass
-            else:
-                if packet.encapsulation_header.Command == ENIPCommandCode.RegisterSession and self.session_handle == None:
-                    self.session_handle = packet.encapsulation_header.Session_Handle
+        for packet in  self.internal_buffer:
 
-                if packet.encapsulation_header.Command == ENIPCommandCode.UnRegisterSession:
-                    self.manage_connection = False
+            if packet.encapsulation_header.Command == ENIPCommandCode.RegisterSession and self.session_handle == None:
+                self.session_handle = packet.encapsulation_header.Session_Handle
+
+            if packet.encapsulation_header.Command == ENIPCommandCode.UnRegisterSession:
+                self.manage_connection = False
 
     def _import_encapsulated_rcv(self, packet, socket):
         transport = trans_metadata(socket, 'tcp')
@@ -236,15 +272,15 @@ class ENIP_Originator():
             parsed_cmd_spc = CommandSpecificParser().import_data(packet, header.Command, response=True, offset=offset)
             offset += parsed_cmd_spc.byte_size
         if offset < packet_length:
-            CPF_Array = CPF_Items()
+            CPF_Array = DT.CPF_Items()
             offset += CPF_Array.import_data(packet, offset)
 
-        parsed_packet = TransportPacket( transport,
-                                         header,
-                                         parsed_cmd_spc,
-                                         CPF_Array,
-                                         data=packet[offset:packet_length]
-                                        )
+        parsed_packet = DT.TransportPacket(  transport,
+                                             header,
+                                             parsed_cmd_spc,
+                                             CPF_Array,
+                                             data=packet[offset:packet_length]
+                                            )
 
         if header.Command == ENIPCommandCode.SendUnitData:
             rsp_identifier = CPF_Array[0].Connection_Identifier
@@ -257,8 +293,7 @@ class ENIP_Originator():
 
         elif header.Command in (ENIPCommandCode.RegisterSession, ENIPCommandCode.UnRegisterSession,
                                 ENIPCommandCode.NOP, ENIPCommandCode.ListIdentity, ENIPCommandCode.ListServices):
-            self.internal_buffer.put(parsed_packet)
-
+            self.internal_buffer.append(parsed_packet)
         else:
             print('unsupported ENIP command')
 
@@ -270,14 +305,14 @@ class ENIP_Originator():
         if packet_length <= 6:
             return None
 
-        CPF_Array = CPF_Items()
+        CPF_Array = DT.CPF_Items()
         offset = CPF_Array.import_data(packet)
 
-        parsed_packet = TransportPacket( transport,
-                                         None,
-                                         None,
-                                         CPF_Array,
-                                         data=packet[offset:packet_length]
+        parsed_packet = DT.TransportPacket(  transport,
+                                             None,
+                                             None,
+                                             CPF_Array,
+                                             data=packet[offset:packet_length]
                                         )
 
         if len(CPF_Array) and  CPF_Array[0].Type_ID == CPF_Codes.SequencedAddress:
