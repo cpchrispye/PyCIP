@@ -7,7 +7,7 @@ import time
 import DataTypesModule as DT
 from Tools.signaling import Signaler
 from .ENIPDataStructures import *
-
+import Tools.networking
 
 class ENIP_Originator():
 
@@ -153,32 +153,36 @@ class ENIP_Originator():
 
     @staticmethod
     def list_identity(target_ip='255.255.255.255', target_port=44818, udp=True):
-        if udp:
-            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        else:
-            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.connect((target_ip, target_port))
-        s.setblocking(0)
+        sockets = []
+        responses = []
         delay = 100
         header = ENIPEncapsulationHeader(ENIPCommandCode.ListIdentity, 0, 0, 0, delay, 0)
-        s.send(header.export_data())
+        data = header.export_data()
+        networks = Tools.networking.list_networks()
+
+        for ifc in networks:
+            if udp:
+                s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                s.bind((ifc, 0))
+                s.setblocking(0)
+                s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+            else:
+                s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.sendto(data, (target_ip, target_port))
+            sockets.append(s)
         time.sleep(1.1*delay/1000)
-        try:
-            packet = s.recv(65535)
-        except BlockingIOError:
-            return None
-
-        if len(packet) < 42:
-            return None
-        rsp_header = ENIPEncapsulationHeader()
-        offset = rsp_header.import_data(packet)
-        return rsp_header
-
-
-
-
-
-
+        for s in sockets:
+            try:
+                packet = s.recv(65535)
+            except BlockingIOError:
+                return None
+            if len(packet) < 42:
+                return None
+            rsp_header = ENIPEncapsulationHeader()
+            offset = rsp_header.import_data(packet)
+            DT.TransportPacket(s, rsp_header)
+            responses.append(DT.TransportPacket(socket.socket.getsockname(s), rsp_header))
+        return responses
 
     # this ideally will use asyncio to manage connections
     def _manage_connection(self):
@@ -198,7 +202,10 @@ class ENIP_Originator():
         # close all connections if no longer active
         self.session_handle = None
         for s in (self.stream_connection, self.datagram_connection):
-            s.close()
+            try:
+                s.close()
+            except:
+                pass
         return None
 
     def _class2_3_send_rcv(self):
