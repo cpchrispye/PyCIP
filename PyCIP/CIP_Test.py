@@ -67,7 +67,7 @@ def main():
     epath.append(LogicalSegment(LogicalType.InstanceID, LogicalFormat.bit_8, 1))
     epath.append(LogicalSegment(LogicalType.AttributeID, LogicalFormat.bit_8, 7))
 
-    # raw send if used along with the service code
+    # raw send is used along with the service code
     rsp = con.raw_CIP_send(CIPServiceCode.get_att_single, epath)
 
     # check to see if successful before parsing
