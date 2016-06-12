@@ -2,8 +2,48 @@ from collections import OrderedDict
 from  DataTypesModule import CIPServiceCode, SegmentType, LogicalType, LogicalFormat, DataSubType
 import struct
 import socket
+import abc
 
-class CIPDataStructure():
+class CIPDataStructureVirtual(object):
+    __metaclass__ = abc.ABCMeta
+
+
+    @abc.abstractmethod
+    def keys(self):
+        pass
+
+    @abc.abstractmethod
+    def import_data(self, bytes, offset=0):
+        pass
+    @abc.abstractmethod
+    def export_data(self):
+        pass
+
+    def items(self):
+        d = self.get_dict()
+        return [(key, d[key]) for key in self.keys()]
+
+    def get_dict(self):
+        return {k:self.__dict__[k] for k in self.keys()}
+
+    def __len__(self):
+        return len(self.export_data())
+
+    def pprint(self):
+        string_list = []
+        for key, val in self.items():
+            try:
+                tmp = ['\t' + x for x in val.pprint()]
+                string_list.append("%s:-" % key)
+                string_list += tmp
+            except AttributeError:
+                string_list.append("%s: %s" % (key, val))
+        return string_list
+
+    def print(self):
+        return '\n'.join(self.pprint())
+
+class CIPDataStructure(CIPDataStructureVirtual):
     global_structure = OrderedDict()
 
     def __init__(self, *data_tuple, **initial_values):
@@ -82,9 +122,9 @@ class CIPDataStructure():
                 # send new sub struct down as a new struct
                 if isinstance(sub_struct, (list, tuple)):
                     self.data[key] = CIPDataStructure(*sub_struct)
-                    offset += self.data[key].import_data(bytes, offset)
+                    offset += self.data[key].import_data(bytes, offset).byte_size
         self.byte_size = offset - start_offset
-        return self.byte_size
+        return self
 
     def export_data(self):
         data_out = bytearray()
@@ -112,13 +152,15 @@ class CIPDataStructure():
         string_list = []
         for key, val in self.items():
             try:
-
                 tmp = ['\t' + x for x in val.pprint()]
                 string_list.append("%s:-" % key)
                 string_list += tmp
             except AttributeError:
                 string_list.append("%s: %s" % (key, val))
         return string_list
+
+    def print(self):
+        return '\n'.join(self.pprint())
 
 class SegType():
     type_code = None
@@ -302,7 +344,7 @@ class EPATH(list):
                     segment = sub()
                     index += segment.import_data(data,
                                                  )
-                    self.append(segment)
+                    self.append(segment).byte_size
                     break
             else:
                 raise ValueError("Value not a acceptable segment: " + str(seg_type))
@@ -311,21 +353,24 @@ class EPATH(list):
 def not_none(primary, secondary):
     return primary if primary != None else secondary
 
+
 class BaseDataParser():
-    @staticmethod
-    def _parse(data, byte_size, signed, offset=0):
-        section = data[offset: offset + byte_size]
-        return int.from_bytes(section, 'little', signed=signed )
+    # @staticmethod
+    # def _parse(data, byte_size, signed, offset=0):
+    #     section = data[offset: offset + byte_size]
+    #     return int.from_bytes(section, 'little', signed=signed )
+    #
+    # @staticmethod
+    # def _build(value, byte_size, signed):
+    #     return value.to_bytes(byte_size, 'little', signed=signed)
 
-    @staticmethod
-    def _build(value, byte_size, signed):
-        return value.to_bytes(byte_size, 'little', signed=signed)
+    def import_data(self, data, offset=0, endian='little'):
+        section = data[offset: offset + self.byte_size]
+        return int.from_bytes(section, endian, signed=self.signed )
 
-    def import_data(self, data, offset=0):
-        return self._parse(data, self.byte_size, self.signed, offset)
+    def export_data(self, value, endian='little'):
+        return value.to_bytes(self.byte_size, endian, signed=self.signed)
 
-    def export_data(self, value):
-        return self._build(value, self.byte_size, self.signed)
 
 class Array_CIP(BaseDataParser):
 
@@ -421,12 +466,12 @@ class IPAddress_CIP(BaseDataParser):
         self.parser = UDINT_CIP()
         self.byte_size = None
 
-    def export_data(self, value):
+    def export_data(self, value=None, endian='little'):
         self.val = not_none(value, self.val)
-        return self.parser.export_data(self.val)
+        return self.parser.export_data(self.val, endian)
 
-    def import_data(self, data, offset=0):
-        self.val = self.parser.import_data(data, offset)
+    def import_data(self, data, offset=0, endian='little'):
+        self.val = self.parser.import_data(data, offset, endian)
         self.byte_size = self.parser.byte_size
         return self
 
@@ -436,7 +481,48 @@ class IPAddress_CIP(BaseDataParser):
         else:
             return 'No IP'
 
+class SocketAddress(CIPDataStructureVirtual):
+    global_structure  = [('sin_family', 'INT'), ('sin_port', 'UINT'),
+                          ('sin_addr', IPAddress_CIP), ('sin_zero', [8,'USINT'])]
 
+    def __init__(self):
+        self.sin_family = None
+        self.sin_port = None
+        self.sin_addr = None
+        self.sin_zero = None
+        self.byte_size = 0
+
+    def import_data(self, data, offset=0):
+        self.byte_size = offset
+
+        self.sin_family = INT_CIP().import_data(data, offset, 'big')
+        offset += INT_CIP.byte_size
+        self.sin_port = UINT_CIP().import_data(data, offset, 'big')
+        offset += UINT_CIP.byte_size
+        self.sin_addr = IPAddress_CIP().import_data(data, offset, 'big')
+        offset += self.sin_addr.byte_size
+        self.sin_zero = ULINT_CIP().import_data(data, offset, 'big')
+        offset += ULINT_CIP.byte_size
+
+        self.byte_size = offset - self.byte_size
+        return self
+
+    def export_data(self):
+        output  = INT_CIP().export_data(self.sin_family, 'big')
+        output += UINT_CIP().export_data(self.sin_port, 'big')
+        output += self.sin_addr.export_data(endian='big')
+        output += ULINT_CIP().export_data(self.sin_zero, 'big')
+        self.byte_size = len(output)
+        return output
+
+    def keys(self):
+        return ('sin_family', 'sin_port', 'sin_addr', 'sin_zero')
+
+    def get_dict(self):
+        return self.__dict__
+
+    def items(self):
+        return [(k, self.__dict__[k]) for k in self.keys()]
 
 class BOOL_CIP(BaseDataParser):
     byte_size = 1

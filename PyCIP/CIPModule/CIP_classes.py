@@ -26,5 +26,5 @@ class Identity_Object():
             self.struct.import_data(rsp.data)
             self.__dict__.update(self.struct.get_dict())
 
-    def pprint(self):
-        print('\n'.join(self.struct.pprint()))
+    def __str__(self):
+        return self.struct.print()

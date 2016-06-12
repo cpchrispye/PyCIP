@@ -15,7 +15,7 @@ class CPF_Codes(IntEnum):
     OTSockaddrInfo    = 0x8000
     TOSockaddrInfo    = 0x8001
 
-class CPF_Items(list):
+class CPF_Items(list, CIPDataStructureVirtual):
 
     def __init__(self):
         self.Item_count = 0
@@ -46,6 +46,12 @@ class CPF_Items(list):
         for CPF in self:
             bytes_out += CPF.export_data()
         return bytes_out
+
+    def keys(self):
+        return range(len(self))
+
+    def get_dict(self):
+        return self
 
 class CPF_Item(CIPDataStructure):
     type_id = None
@@ -92,3 +98,5 @@ class CPF_ConnectedData(CPF_Item):
     type_id = CPF_Codes.ConnectedData
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+
+

@@ -85,6 +85,6 @@ class DLR_Object():
         if rsp.CIP.General_Status == 0:
             self.struct.import_data(rsp.data)
 
-    def pprint(self):
-        print('\n'.join(self.struct.pprint()))
+    def __str__(self):
+        return self.struct.print()
 

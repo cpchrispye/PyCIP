@@ -84,11 +84,12 @@ class ConnectionManager():
         packet += port_path
 
         receipt = self.trans.explicit_message(CIPServiceCode.unconnected_Send, class_val, insta_val, data=packet, use_UCMM=False)
-        #response = self.trans.receive(receipt)
         return receipt
 
 
-    def forward_open(self, EPath, **kwargs):
+    def forward_open(self, EPath, tick=6, time_out=0x28, OT_connection_ID=None, TO_connection_ID=None, connection_serial=None,
+                     O_vendor_ID=88, O_serial=12345678, time_out_multiplier=0, reserved_1=0, reserved_2=0, reserved_3=0, OT_RPI=0x03E7FC18,
+                     OT_connection_params=0x43FF, TO_RPI=0x03E7FC18, TO_connection_params=0x43FF, trigger=0xa3):
 
         message_router_path = EPATH()
         message_router_path.append(LogicalSegment(LogicalType.ClassID, LogicalFormat.bit_8, 6))
@@ -96,29 +97,23 @@ class ConnectionManager():
 
         connection_path_bytes = EPath.export_data()
 
-        # build default fwd open parameters
-        self.struct_fwd_open_send.tick = 6
-        self.struct_fwd_open_send.time_out = 0x28
-        self.struct_fwd_open_send.OT_connection_ID = random.randrange(1, 99999)
-        self.struct_fwd_open_send.TO_connection_ID = self.trans.get_next_sender_context()
-        self.struct_fwd_open_send.connection_serial = random.randrange(0, 2^16)
-        self.struct_fwd_open_send.O_vendor_ID = 88
-        self.struct_fwd_open_send.O_serial = 12345678
-        self.struct_fwd_open_send.time_out_multiplier = 0
-        self.struct_fwd_open_send.reserved_1 = 0
-        self.struct_fwd_open_send.reserved_2 = 0
-        self.struct_fwd_open_send.reserved_3 = 0
-        self.struct_fwd_open_send.OT_RPI = 0x03E7FC18
-        self.struct_fwd_open_send.OT_connection_params = 0x43FF
-        self.struct_fwd_open_send.TO_RPI = 0x03E7FC18
-        self.struct_fwd_open_send.TO_connection_params = 0x43FF
-        self.struct_fwd_open_send.trigger = 0xa3
+        self.struct_fwd_open_send.tick = tick
+        self.struct_fwd_open_send.time_out = time_out
+        self.struct_fwd_open_send.OT_connection_ID = OT_connection_ID if OT_connection_ID != None else random.randrange(1, 99999)
+        self.struct_fwd_open_send.TO_connection_ID = TO_connection_ID if TO_connection_ID != None else self.trans.get_next_sender_context()
+        self.struct_fwd_open_send.connection_serial = connection_serial if connection_serial != None else random.randrange(0, 2^16)
+        self.struct_fwd_open_send.O_vendor_ID = O_vendor_ID
+        self.struct_fwd_open_send.O_serial = O_serial
+        self.struct_fwd_open_send.time_out_multiplier = time_out_multiplier
+        self.struct_fwd_open_send.reserved_1 = reserved_1
+        self.struct_fwd_open_send.reserved_2 = reserved_2
+        self.struct_fwd_open_send.reserved_3 = reserved_3
+        self.struct_fwd_open_send.OT_RPI = OT_RPI
+        self.struct_fwd_open_send.OT_connection_params = OT_connection_params
+        self.struct_fwd_open_send.TO_RPI = TO_RPI
+        self.struct_fwd_open_send.TO_connection_params = TO_connection_params
+        self.struct_fwd_open_send.trigger = trigger
         self.struct_fwd_open_send.path_len = len(connection_path_bytes)//2
-
-        # update parameters
-        for key in self.struct_fwd_open_send.keys():
-            if key in kwargs:
-                self.struct_fwd_open_send[key] = kwargs[key]
 
         command_specific = self.struct_fwd_open_send.export_data()
 
@@ -128,3 +123,4 @@ class ConnectionManager():
             self.struct_fwd_open_rsp.import_data(response.data)
             return self.struct_fwd_open_rsp
         return None
+

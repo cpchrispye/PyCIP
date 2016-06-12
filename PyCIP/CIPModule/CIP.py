@@ -215,6 +215,19 @@ class CIP_Manager():
         receipt = self._send(routing_type, CIPServiceCode.set_att_single, path, data=data, EPath=None)
         return self._receive(routing_type, receipt)
 
+    def set_attr_all(self, class_int, instance_int, attribute_int, data, routing_type=None, EPath=None):
+        path = EPATH()
+        path.append(LogicalSegment(LogicalType.ClassID, LogicalFormat.bit_8, class_int))
+        path.append(LogicalSegment(LogicalType.InstanceID, LogicalFormat.bit_8, instance_int))
+
+        receipt = self._send(routing_type, CIPServiceCode.set_att_all, path, data=data, EPath=None)
+        return self._receive(routing_type, receipt)
+
+    def raw_CIP_send(self, service, path, data=bytes(), routing_type=None, EPath=None):
+
+        receipt = self._send(routing_type, service, path, data=data, EPath=None)
+        return self._receive(routing_type, receipt)
+
 class RoutingType(IntEnum):
 
     ExplicitDefault     = 0,

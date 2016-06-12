@@ -54,6 +54,8 @@ class ENIP_Originator():
         self.manage_connection = False
 
     def create_class_2_3(self, target_ip, target_port=44818):
+        if self.target != None:
+            raise Tools.exceptions.IncorrectState("IP address already set, use another layer object for different targets")
         self.target = target_ip
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.settimeout(3)
@@ -111,7 +113,10 @@ class ENIP_Originator():
     def _send_encap(self, packet):
         self.class2_3_out_queue.put(packet)
 
-    def register_session(self):
+    def register_session(self, target_ip=None):
+        if target_ip != None:
+            self.create_class_2_3(target_ip)
+
         command_specific = RegisterSession(Protocol_version=1, Options_flags=0)
         command_specific_bytes = command_specific.export_data()
         encap_header = ENIPEncapsulationHeader(ENIPCommandCode.RegisterSession,
@@ -180,8 +185,10 @@ class ENIP_Originator():
                 return None
             rsp_header = ENIPEncapsulationHeader()
             offset = rsp_header.import_data(packet)
-            DT.TransportPacket(s, rsp_header)
-            responses.append(DT.TransportPacket(socket.socket.getsockname(s), rsp_header))
+            li = ListIdentityRsp()
+            li.import_data(packet, offset)
+            offset += li.byte_size
+            responses.append(li)
         return responses
 
     # this ideally will use asyncio to manage connections
@@ -342,7 +349,7 @@ class trans_metadata():
 
         self.recevied_time = time.time()
 
-class ENIPEncapsulationHeader():
+class ENIPEncapsulationHeader(CIPDataStructureVirtual):
 
     ENIPHeaderStruct = '<HHIIQI'
 
@@ -377,3 +384,30 @@ class ENIPEncapsulationHeader():
                                                     self.Options
                             )
 
+
+    def keys(self):
+        return ('Command', 'Length', 'Session_Handle', 'Status', 'Sender_Context', 'Options')
+
+    def get_dict(self):
+        return {key:self.__dict__[key ]for key in self.keys()}
+
+
+class ListIdentityRsp(CIPDataStructure):
+    global_structure = [
+        ('Item_Count', 'UINT'),
+        ('Target_Items', ['Item_Count', [
+                ('Item_ID',     'UINT'),
+                ('Item_Length', 'UINT'),
+                ('Version', 'UINT'),
+                ('Socket_Address', SocketAddress),
+                ('Vendor_ID', 'UINT'),
+                ('Device_Type', 'UINT'),
+                ('Product_Code', 'UINT'),
+                ('Revision', [('Major','USINT'), ('Minor', 'USINT')]),
+                ('Status', 'WORD'),
+                ('Serial_Number', 'UDINT'),
+                ('Product_Name', 'SHORT_STRING'),
+                ('State', 'USINT'),
+            ]
+        ]),
+    ]
