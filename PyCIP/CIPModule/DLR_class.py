@@ -53,6 +53,7 @@ class DLR_Object():
              ),
             ('Active_Gateway_Precedence', 'USINT')
         )
+
         DLR_1     = 2
         DLR_1_sup = 50
         DLR_2     = 16
@@ -76,13 +77,11 @@ class DLR_Object():
             self.class_struct.import_data(rsp.data)
 
         rsp = self.transport.get_attr_all(71, 1)
-        data_len = len(rsp.data)
-        filter = self.dict_of_versions[data_len]
-        st = self.master_struct.get_struct()
-        self.struct = CIPDataStructure(*[st[i-1] for i in filter])
-
-
         if rsp.CIP.General_Status == 0:
+            data_len = len(rsp.data)
+            filter = self.dict_of_versions[data_len]
+            st = self.master_struct.get_struct()
+            self.struct = CIPDataStructure(*[st[i-1] for i in filter])
             self.struct.import_data(rsp.data)
 
     def __str__(self):

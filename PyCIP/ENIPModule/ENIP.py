@@ -176,13 +176,17 @@ class ENIP_Originator():
             s.sendto(data, (target_ip, target_port))
             sockets.append(s)
         time.sleep(1.1*delay/1000)
+        packets = []
         for s in sockets:
             try:
-                packet = s.recv(65535)
+                while True:
+                    packets.append(s.recv(65535))
             except BlockingIOError:
-                return None
+                pass
+
+        for packet in packets:
             if len(packet) < 42:
-                return None
+                continue
             rsp_header = ENIPEncapsulationHeader()
             offset = rsp_header.import_data(packet)
             li = ListIdentityRsp()
