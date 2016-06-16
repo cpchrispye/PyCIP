@@ -2,6 +2,7 @@ import ENIPModule
 import CIPModule
 from DataTypesModule import LogicalSegment, LogicalType, LogicalFormat, DataSegment, EPATH, DataSubType, TransportPacket, CIPServiceCode,\
                             ShortStringDataParser
+from DataTypesModule.BaseDataTypes import Identity
 import time
 
 def main():
@@ -41,6 +42,11 @@ def main():
     DLR = CIPModule.DLR_Object(con)
     print(DLR)
     print()
+
+    data = con.get_attr_all(1,1).data
+
+    ID = Identity()
+    ID.import_data(data)
 
     # CIP handler can perform common services such as get attr,
     # raw rsp come in the form of a transport packet from DataTypes.TransportPacket
