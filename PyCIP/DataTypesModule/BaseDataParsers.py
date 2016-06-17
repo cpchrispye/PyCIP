@@ -1,7 +1,7 @@
 from abc import ABCMeta, abstractmethod
 from  DataTypesModule.NumericTypes import *
 
-class virtual_base_data():
+class VirtualBaseData():
     __metaclass__ = ABCMeta
 
     @abstractmethod
@@ -29,7 +29,7 @@ class virtual_base_data():
         '''
         pass
 
-class virtual_base_structure():
+class VirtualBaseStructure():
     __metaclass__ = ABCMeta
 
     @abstractmethod
@@ -98,13 +98,14 @@ class virtual_base_structure():
 
 
 
-class base_data(virtual_base_data, NumberBasic, NumberComp, NumberInt, NumberI):
+class BaseData(VirtualBaseData, NumberInt, NumberComp, NumberBasic):
 
     _byte_size = 0
     _signed    = None
 
-    def __init__(self, value=None):
+    def __init__(self, value=None, endian='little'):
         self._value = value
+        self._endian = endian
 
     @property
     def internal_data(self):
@@ -114,15 +115,19 @@ class base_data(virtual_base_data, NumberBasic, NumberComp, NumberInt, NumberI):
     def internal_data(self, val):
         self._value = val
 
-    def import_data(self, data, offset=0, endian='little'):
+    def import_data(self, data, offset=0, endian=None):
         section = data[offset: offset + self._byte_size]
+        if endian is None:
+            endian = self._endian
         self._value = int.from_bytes(section, endian, signed=self._signed)
         return self._byte_size
 
-    def export_data(self, value=None, endian='little'):
+    def export_data(self, value=None, endian=None):
         if value is None:
             value = self._value
-        return value.to_bytes(self._byte_size, endian, signed=self._signed)
+        if endian is None:
+            endian = self._endian
+        return int(value).to_bytes(self._byte_size, endian, signed=self._signed)
 
     def sizeof(self):
         return self._byte_size
@@ -138,7 +143,7 @@ class base_data(virtual_base_data, NumberBasic, NumberComp, NumberInt, NumberI):
     def __bytes__(self):
         return bytes(self.export_data())
 
-class base_structure():
+class BaseStructure(VirtualBaseStructure):
 
     def import_data(self, bytes, offset=0):
         length = len(bytes)
@@ -172,40 +177,46 @@ class base_structure():
         try:
             return self._items
         except:
-            self._items = tuple([(k, self.__dict__[k]) for k in self.keys()])
+            self._items = []
+            for k in self.keys():
+                try:
+                    self._items.append((k, self.__dict__[k]))
+                except:
+                    self._items.append((k, self[k]))
         return self._items
 
     def values(self):
         try:
             return self._values
         except:
-            self._values = tuple([self.__dict__[k] for k in self.keys()])
+            self._values = tuple([item[1] for item in self.items()])
         return self._values
 
     def dict(self):
         try:
             return self._dict
         except:
-            self._dict = {k:self.__dict__[k] for k in self.keys()}
+            self._dict = {item[0]:item[1] for item in self.items()}
         return self._dict
 
     def __getitem__(self, item):
         '''
             getitem returns the a base data type not a value
         '''
-        if item is str:
+        if isinstance(item, str):
             attr = item
-        elif item is int:
+        elif isinstance(item, int):
             attr = self.keys()[item]
         return self.__dict__[attr]
+
 
     def __setitem__(self, key, value):
         '''
             setitem sets the a base data type not a value
         '''
-        if key is str:
+        if isinstance(key, str):
             attr = key
-        elif key is int:
+        elif isinstance(key, int):
             attr = self.keys()[key]
         if not hasattr(value, 'sizeof'):
             raise ValueError("Structure objects must be a data parser")
@@ -236,8 +247,17 @@ class base_structure():
         except:
             pass
 
+    def data_dump(self):
+        output = []
+        for key, val in self.items():
+            try:
+                output.append((key, val.data_dump()))
+            except AttributeError:
+                output.append((key, str(val)))
+        return output
 
-class base_structure_auto_keys(base_structure):
+
+class BaseStructureAutoKeys(BaseStructure):
 
     def keys(self):
         try:
@@ -259,3 +279,15 @@ class base_structure_auto_keys(base_structure):
         if hasattr(value, 'sizeof'):
             self.add_key(key)
         super().__setattr__(key, value)
+
+def print_structure(structure, output=print, depth=0):
+    struct = structure.data_dump()
+
+    def printer(sub, depth, output):
+        for key, val in sub:
+            if isinstance(val, list):
+                output('%s%s:-' % ('\t'*depth, key))
+                printer(val, depth+1, output)
+            else:
+                output('%s%s: %s' % ('\t'*depth, key, val))
+    printer(struct, depth, output)

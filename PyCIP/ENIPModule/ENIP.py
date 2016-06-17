@@ -4,7 +4,6 @@ import socket
 from threading import Thread
 #from multiprocessing import Process as Thread
 import time
-import DataTypesModule as DT
 from Tools.signaling import Signaler
 from .ENIPDataStructures import *
 import Tools.networking
@@ -189,8 +188,7 @@ class ENIP_Originator():
             rsp_header = ENIPEncapsulationHeader()
             offset = rsp_header.import_data(packet)
             li = ListIdentityRsp()
-            li.import_data(packet, offset)
-            offset += li.byte_size
+            offset += li.import_data(packet, offset)
             responses.append(li)
         return responses
 
@@ -267,10 +265,10 @@ class ENIP_Originator():
     def _ENIP_context_packet_mgmt(self):
         for packet in  self.internal_buffer:
 
-            if packet.encapsulation_header.Command() == ENIPCommandCode.RegisterSession and self.session_handle == None:
-                self.session_handle = packet.encapsulation_header.Session_Handle()
+            if packet.encapsulation_header.Command == ENIPCommandCode.RegisterSession and self.session_handle == None:
+                self.session_handle = packet.encapsulation_header.Session_Handle
 
-            if packet.encapsulation_header.Command() == ENIPCommandCode.UnRegisterSession:
+            if packet.encapsulation_header.Command == ENIPCommandCode.UnRegisterSession:
                 self.manage_connection = False
 
     def _import_encapsulated_rcv(self, packet, socket):
@@ -278,7 +276,7 @@ class ENIP_Originator():
 
         header    = ENIPEncapsulationHeader()
         offset    = header.import_data(packet)
-        packet_length = header.Length() + header.sizeof()
+        packet_length = header.Length + header.sizeof()
         if offset < 0 or packet_length  > len(packet):
             return -1
 
@@ -286,8 +284,8 @@ class ENIP_Originator():
         CPF_Array = None
 
         if offset < packet_length:
-            parsed_cmd_spc = CommandSpecificParser().import_data(packet, header.Command(), response=True, offset=offset)
-            offset += parsed_cmd_spc.byte_size
+            parsed_cmd_spc = CommandSpecificParser().import_data(packet, header.Command, response=True, offset=offset)
+            offset += parsed_cmd_spc.sizeof()
         if offset < packet_length:
             CPF_Array = DT.CPF_Items()
             offset += CPF_Array.import_data(packet, offset)
@@ -299,22 +297,22 @@ class ENIP_Originator():
                                              data=packet[offset:packet_length]
                                             )
 
-        if header.Command() == ENIPCommandCode.SendUnitData:
+        if header.Command == ENIPCommandCode.SendUnitData:
             rsp_identifier = CPF_Array[0].Connection_Identifier
         else:
             rsp_identifier = header.Sender_Context()
 
         parsed_packet.response_id = rsp_identifier
-        if header.Command() in (ENIPCommandCode.SendUnitData, ENIPCommandCode.SendRRData):
+        if header.Command in (ENIPCommandCode.SendUnitData, ENIPCommandCode.SendRRData):
             self.messager.send_message(rsp_identifier, parsed_packet)
 
-        elif header.Command() in (ENIPCommandCode.RegisterSession, ENIPCommandCode.UnRegisterSession,
+        elif header.Command in (ENIPCommandCode.RegisterSession, ENIPCommandCode.UnRegisterSession,
                                 ENIPCommandCode.NOP, ENIPCommandCode.ListIdentity, ENIPCommandCode.ListServices):
             self.internal_buffer.append(parsed_packet)
         else:
             print('unsupported ENIP command')
 
-        del packet[:header.Length() + header.sizeof()]
+        del packet[:header.Length + header.sizeof()]
 
     def _import_IO_rcv(self, packet, socket):
         transport = trans_metadata(socket, 'udp')
@@ -349,41 +347,9 @@ class trans_metadata():
         self.host = socket.getsockname()
         self.peer = socket.getpeername()
         self.protocall = proto
-
         self.recevied_time = time.time()
 
 
-class ENIPEncapsulationHeader(DT.base_structure_auto_keys):
-
-    def __init__(self, Command=None, Length=None, Session_Handle=None, Status=None, Sender_Context=None, Options=0) :
-
-        self.Command        = DT.UINT(Command)
-        self.Length         = DT.UINT(Length)
-        self.Session_Handle = DT.UDINT(Session_Handle)
-        self.Status         = DT.UDINT(Status)
-        self.Sender_Context = DT.ULINT(Sender_Context)
-        self.Options        = DT.UDINT(Options)
-
-
-class ListIdentityRsp(CIPDataStructure):
-    global_structure = [
-        ('Item_Count', 'UINT'),
-        ('Target_Items', ['Item_Count', [
-                ('Item_ID',     'UINT'),
-                ('Item_Length', 'UINT'),
-                ('Version', 'UINT'),
-                ('Socket_Address', SocketAddress),
-                ('Vendor_ID', 'UINT'),
-                ('Device_Type', 'UINT'),
-                ('Product_Code', 'UINT'),
-                ('Revision', [('Major','USINT'), ('Minor', 'USINT')]),
-                ('Status', 'WORD'),
-                ('Serial_Number', 'UDINT'),
-                ('Product_Name', 'SHORT_STRING'),
-                ('State', 'USINT'),
-            ]
-        ]),
-    ]
 
 def parse_list_identity(list_identity):
     names = {}
@@ -392,5 +358,5 @@ def parse_list_identity(list_identity):
         ips = []
         for ifc in device_packet.Target_Items:
             ips.append(ifc.Socket_Address.sin_addr)
-        names[ifc.Product_Name] = ips
+        names[str(ifc.Product_Name)] = ips
     return names

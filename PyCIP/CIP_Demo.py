@@ -1,7 +1,7 @@
 import ENIPModule
 import CIPModule
 from DataTypesModule import LogicalSegment, LogicalType, LogicalFormat, DataSegment, EPATH, DataSubType, TransportPacket, CIPServiceCode,\
-                            ShortStringDataParser
+                            ShortStringDataParser, print_structure, MACAddress
 import time
 
 def main():
@@ -13,13 +13,14 @@ def main():
     devices = ENIPModule.parse_list_identity(rsp)
     print("devices found: " + ', '.join(devices.keys()))
 
-    device_ip = devices['1715-AENTR'][0]
+    device_ip = devices['1783-ETAP/A'][0]
     reply = ENIP_Layer.register_session(str(device_ip))
     if not reply:
         return
 
     # create a CIP handler with a ENIP layer
     con = CIPModule.CIP_Manager(ENIP_Layer)
+    data = con.get_attr_all(1,1)
 
     # convenience object can use the CIP handler, they have knowledge of the CIP object structure and services
     ID1 = CIPModule.Identity_Object(con)
@@ -30,23 +31,22 @@ def main():
     print(DLR)
     print()
 
-    data = con.get_attr_all(1,1).data
 
     # CIP handler can perform common services such as get attr,
     # raw rsp come in the form of a transport packet from DataTypes.TransportPacket
     TransportPacket()
     rsp = con.get_attr_single(1 , 1 , 7)
     # the structure is as follows:
-    print("transport header:")
-    print(rsp.encapsulation_header.print())
-    print("command specific:")
-    print(rsp.command_specific.print())
-    print("common packet format:")
-    print(rsp.CPF.print())
-    print("CIP format:")
-    print(rsp.CIP.print())
-    print("raw data in CIP packet:")
-    print(rsp.data)
+    print("transport header:-")
+    print_structure(rsp.encapsulation_header, depth=1)
+    print("command specific:-")
+    print_structure(rsp.command_specific, depth=1)
+    print("common packet format:-")
+    print_structure(rsp.CPF, depth=1)
+    print("CIP format:-")
+    print_structure(rsp.CIP, depth=1)
+    print("raw data in CIP packet:-")
+    print('\t', rsp.data)
 
 
     # a raw encap send can be used instead of the built in methods

@@ -11,6 +11,7 @@ from DataTypesModule.CPF import CPF_Codes, CPF_Items, CPF_Item, CPF_NullAddress,
 
 from DataTypesModule.BaseDataParsers import *
 from DataTypesModule.BaseDataTypes import *
+from DataTypesModule.SpecialDataTypes import *
 
 
 

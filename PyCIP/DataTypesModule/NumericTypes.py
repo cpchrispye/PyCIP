@@ -80,94 +80,6 @@ class NumberBasic():
         except:
             raise NotImplementedError
 
-class NumberRight():
-
-    def __radd__(self, *args, **kwargs):
-        try:
-            return self.internal_data.__radd__(*args, **kwargs)
-        except:
-            raise NotImplementedError
-
-    def __rsub__(self, *args, **kwargs):
-        try:
-            return self.internal_data.__rsub__(*args, **kwargs)
-        except:
-            raise NotImplementedError
-
-    def __rmul__(self, *args, **kwargs):
-        try:
-            return self.internal_data.__rmul__(*args, **kwargs)
-        except:
-            raise NotImplementedError
-
-    def __rmatmul__(self, *args, **kwargs):
-        try:
-            return self.internal_data.__rmatmul__(*args, **kwargs)
-        except:
-            raise NotImplementedError
-
-    def __rtruediv__(self, *args, **kwargs):
-        try:
-            return self.internal_data.__rtruediv__(*args, **kwargs)
-        except:
-            raise NotImplementedError
-
-    def __rfloordiv__(self, *args, **kwargs):
-        try:
-            return self.internal_data.__rfloordiv__(*args, **kwargs)
-        except:
-            raise NotImplementedError
-
-    def __rmod__(self, *args, **kwargs):
-        try:
-            return self.internal_data.__rmod__(*args, **kwargs)
-        except:
-            raise NotImplementedError
-
-    def __rdivmod__(self, *args, **kwargs):
-        try:
-            return self.internal_data.__rdivmod__(*args, **kwargs)
-        except:
-            raise NotImplementedError
-
-    def __rpow__(self, *args, **kwargs):
-        try:
-            return self.internal_data.__rpow__(*args, **kwargs)
-        except:
-            raise NotImplementedError
-
-    def __rlshift__(self, *args, **kwargs):
-        try:
-            return self.internal_data.__rlshift__(*args, **kwargs)
-        except:
-            raise NotImplementedError
-
-    def __rrshift__(self, *args, **kwargs):
-        try:
-            return self.internal_data.__rrshift__(*args, **kwargs)
-        except:
-            raise NotImplementedError
-
-    def __rand__(self, *args, **kwargs):
-        try:
-            return self.internal_data.__rand__(*args, **kwargs)
-        except:
-            raise NotImplementedError
-
-    def __rxor__(self, *args, **kwargs):
-        try:
-            return self.internal_data.__rxor__(*args, **kwargs)
-        except:
-            raise NotImplementedError
-
-    def __ror__(self, *args, **kwargs):
-        try:
-            return self.internal_data.__ror__(*args, **kwargs)
-        except:
-            raise NotImplementedError
-
-class NumberI():
-
     def __iadd__(self, *args, **kwargs):
         try:
             self.internal_data = self.internal_data.__add__(*args, **kwargs)
@@ -259,6 +171,92 @@ class NumberI():
         except:
             raise NotImplementedError
 
+class NumberRight():
+
+    def __radd__(self, *args, **kwargs):
+        try:
+            return self.internal_data.__radd__(*args, **kwargs)
+        except:
+            raise NotImplementedError
+
+    def __rsub__(self, *args, **kwargs):
+        try:
+            return self.internal_data.__rsub__(*args, **kwargs)
+        except:
+            raise NotImplementedError
+
+    def __rmul__(self, *args, **kwargs):
+        try:
+            return self.internal_data.__rmul__(*args, **kwargs)
+        except:
+            raise NotImplementedError
+
+    def __rmatmul__(self, *args, **kwargs):
+        try:
+            return self.internal_data.__rmatmul__(*args, **kwargs)
+        except:
+            raise NotImplementedError
+
+    def __rtruediv__(self, *args, **kwargs):
+        try:
+            return self.internal_data.__rtruediv__(*args, **kwargs)
+        except:
+            raise NotImplementedError
+
+    def __rfloordiv__(self, *args, **kwargs):
+        try:
+            return self.internal_data.__rfloordiv__(*args, **kwargs)
+        except:
+            raise NotImplementedError
+
+    def __rmod__(self, *args, **kwargs):
+        try:
+            return self.internal_data.__rmod__(*args, **kwargs)
+        except:
+            raise NotImplementedError
+
+    def __rdivmod__(self, *args, **kwargs):
+        try:
+            return self.internal_data.__rdivmod__(*args, **kwargs)
+        except:
+            raise NotImplementedError
+
+    def __rpow__(self, *args, **kwargs):
+        try:
+            return self.internal_data.__rpow__(*args, **kwargs)
+        except:
+            raise NotImplementedError
+
+    def __rlshift__(self, *args, **kwargs):
+        try:
+            return self.internal_data.__rlshift__(*args, **kwargs)
+        except:
+            raise NotImplementedError
+
+    def __rrshift__(self, *args, **kwargs):
+        try:
+            return self.internal_data.__rrshift__(*args, **kwargs)
+        except:
+            raise NotImplementedError
+
+    def __rand__(self, *args, **kwargs):
+        try:
+            return self.internal_data.__rand__(*args, **kwargs)
+        except:
+            raise NotImplementedError
+
+    def __rxor__(self, *args, **kwargs):
+        try:
+            return self.internal_data.__rxor__(*args, **kwargs)
+        except:
+            raise NotImplementedError
+
+    def __ror__(self, *args, **kwargs):
+        try:
+            return self.internal_data.__ror__(*args, **kwargs)
+        except:
+            raise NotImplementedError
+
 class NumberMag():
 
     def __neg__(self, *args, **kwargs):
@@ -299,6 +297,15 @@ class NumberInt():
         except:
             raise NotImplementedError
 
+    def __index__(self, *args, **kwargs):
+        try:
+            return self.internal_data.__index__(*args, **kwargs)
+        except:
+            raise NotImplementedError
+
+    def __hash__(self):
+        return self.internal_data.__hash__()
+
 class NumberFloat():
     def __float__(self, *args, **kwargs):
         try:
@@ -319,6 +326,9 @@ class NumberIndex():
             return self.internal_data.__index__(*args, **kwargs)
         except:
             raise NotImplementedError
+
+    def __hash__(self):
+        return self.internal_data.__hash__()
 
 class NumberComp():
     def __lt__(self, *args, **kwargs):
@@ -354,6 +364,12 @@ class NumberComp():
     def __ge__(self, *args, **kwargs):
         try:
             return self.internal_data.__ge__(*args, **kwargs)
+        except:
+            raise NotImplementedError
+
+    def __bool__(self):
+        try:
+            return self.internal_data.__bool__()
         except:
             raise NotImplementedError
 

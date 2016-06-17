@@ -36,7 +36,7 @@ class Basic_CIP():
                 message_response = MessageRouterResponseStruct_UCMM()
                 message_response.import_data(packet.data)
                 packet.CIP = message_response
-                packet.data = packet.data[packet.CIP.byte_size:]
+                packet.data = packet.data[packet.CIP.sizeof():]
                 signal_id = packet.encapsulation_header.Sender_Context()
                 self.transport_messenger.unregister(message_structure.signal_id)
 
@@ -46,7 +46,7 @@ class Basic_CIP():
                 message_response = MessageRouterResponseStruct()
                 message_response.import_data(packet.data)
                 packet.CIP = message_response
-                packet.data = packet.data[packet.CIP.byte_size:]
+                packet.data = packet.data[packet.CIP.sizeof():]
                 signal_id = message_response.Sequence_Count
 
             # Connected Implicit
@@ -105,22 +105,25 @@ class Basic_CIP():
 
 
 #vol1 ver 3.18 2-4.2
-class MessageRouterResponseStruct(CIPDataStructure):
-    global_structure = OrderedDict((('Sequence_Count', 'UINT'),
-                                     ('Reply_Service', 'USINT'),
-                                     ('Reserved', 'USINT'),
-                                     ('General_Status', 'USINT'),
-                                     ('Size_of_Additional_Status', 'USINT'),
-                                     ('Additional_Status', ['Size_of_Additional_Status', 'WORD']))
-                                    )
+class MessageRouterResponseStruct(BaseStructureAutoKeys):
+
+    def __init__(self):
+        self.Sequence_Count = UINT()
+        self.Reply_Service = USINT()
+        self.Reserved = USINT()
+        self.General_Status = USINT()
+        self.Size_of_Additional_Status = USINT()
+        self.Additional_Status = ARRAY(WORD, self.Size_of_Additional_Status)
+
 #vol1 ver 3.18 2-4.2
-class MessageRouterResponseStruct_UCMM(CIPDataStructure):
-    global_structure = OrderedDict((('Reply_Service', 'USINT'),
-                                     ('Reserved', 'USINT'),
-                                     ('General_Status', 'USINT'),
-                                     ('Size_of_Additional_Status', 'USINT'),
-                                     ('Additional_Status', ['Size_of_Additional_Status', 'WORD'])
-                                     ))
+class MessageRouterResponseStruct_UCMM(BaseStructureAutoKeys):
+
+    def __init__(self):
+        self.Reply_Service = USINT()
+        self.Reserved = USINT()
+        self.General_Status = USINT()
+        self.Size_of_Additional_Status = USINT()
+        self.Additional_Status = ARRAY(WORD, self.Size_of_Additional_Status)
 
 def explicit_request(service, EPath, data=bytes()):
     request = bytearray()

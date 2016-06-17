@@ -50,6 +50,7 @@ class SignalerM2M():
         del self.signal_message_table[signal_id]
 
     def send_message(self, signal_id, message):
+        signal_id = int(signal_id)
         message_s = MessageStruct(signal_id, self.id, message)
         self.signal_message_table[signal_id].put(message_s)
 

@@ -1,85 +1,94 @@
-from DataTypesModule.BaseDataParsers import base_data, base_structure, virtual_base_structure
+from DataTypesModule.BaseDataParsers import BaseData, BaseStructure, VirtualBaseStructure
 
-class BOOL(base_data):
+class BOOL(BaseData):
     _byte_size = 1
     _signed = 0
 
-class SINT(base_data):
+class SINT(BaseData):
     _byte_size = 1
     _signed = 1
 
-class INT(base_data):
+class INT(BaseData):
     _byte_size = 2
     _signed = 1
 
-class DINT(base_data):
+class DINT(BaseData):
     _byte_size = 4
     _signed = 1
 
-class LINT(base_data):
+class LINT(BaseData):
     _byte_size = 8
     _signed = 1
 
-class USINT(base_data):
+class USINT(BaseData):
     _byte_size = 1
     _signed = 0
 
-class UINT(base_data):
+class UINT(BaseData):
     _byte_size = 2
     _signed = 0
 
-class UDINT(base_data):
+class UDINT(BaseData):
     _byte_size = 4
     _signed = 0
 
-class ULINT(base_data):
+class ULINT(BaseData):
     _byte_size = 8
     _signed = 0
 
-class BYTE(base_data):
+class BYTE(BaseData):
     _byte_size = 1
     _signed = 0
 
-class WORD(base_data):
+class WORD(BaseData):
     _byte_size = 2
     _signed = 0
 
-class DWORD(base_data):
+class DWORD(BaseData):
     _byte_size = 4
     _signed = 0
 
-class LWORD(base_data):
+class LWORD(BaseData):
     _byte_size = 8
     _signed = 0
 
 
-class ARRAY(list, base_structure):
+class ARRAY(list, BaseStructure):
 
     def __init__(self, data_type, size=None):
         self._data_type = data_type
         self._size = size
+        if self._size:
+            for _ in range(self._size):
+                self.append(self._data_type())
 
     def import_data(self, data, offset=0, size=None):
         length = len(data)
         start_offset = offset
 
         if size is None:
-            size = self._size
+            size = int(self._size)
 
+        index = 0
         while offset <= length:
+            if index >= size:
+                break
             parser = self._data_type()
             offset += parser.import_data(data, offset)
-            self.append(parser)
-            if len(self) >= size:
-                break
+            try:
+                self[index] = parser
+            except:
+                self.append(parser)
+            index += 1
+
 
         return offset - start_offset
 
     def keys(self):
-        return range(0, len(self)-1)
+        return range(0, len(self))
 
 
-class STRING(base_data):
+class STRING(BaseData):
 
     def __init__(self, char_size=1):
         self._char_size = char_size
@@ -125,7 +134,8 @@ class STRING(base_data):
         self.export_data()
         return self._byte_size
 
-class SHORTSTRING(base_data):
+
+class SHORTSTRING(BaseData):
 
     def __init__(self):
         self._char_size = 1
@@ -158,5 +168,3 @@ class SHORTSTRING(base_data):
     def sizeof(self):
         self.export_data()
         return self._byte_size
-
-
