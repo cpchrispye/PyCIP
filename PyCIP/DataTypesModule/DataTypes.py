@@ -25,6 +25,7 @@ class CIPServiceCode(IntEnum):
     set_att_all    = 0x02
     unconnected_Send = 0x52
     forward_open   = 0x54
+    forward_close  = 0x4E
 
 class SegmentType(IntEnum):
 
