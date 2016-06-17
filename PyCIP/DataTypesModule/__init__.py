@@ -9,6 +9,10 @@ from DataTypesModule.DataParsers import CIPDataStructure, CIPDataTypes, PortSegm
 from DataTypesModule.CPF import CPF_Codes, CPF_Items, CPF_Item, CPF_NullAddress, CPF_ConnectedAddress, CPF_SequencedAddress,\
                                 CPF_UnconnectedData, CPF_ConnectedData
 
+from DataTypesModule.BaseDataParsers import *
+from DataTypesModule.BaseDataTypes import *
+
+
 
 
 

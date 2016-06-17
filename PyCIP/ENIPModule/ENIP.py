@@ -353,47 +353,59 @@ class trans_metadata():
 
         self.recevied_time = time.time()
 
-class ENIPEncapsulationHeader(CIPDataStructureVirtual):
+# class ENIPEncapsulationHeader(CIPDataStructureVirtual):
+#
+#     ENIPHeaderStruct = '<HHIIQI'
+#
+#     def __init__(self, Command=None, Length=None, Session_Handle=None, Status=None, Sender_Context=None, Options=0) :
+#
+#         self.Command        = Command
+#         self.Length         = Length
+#         self.Session_Handle = Session_Handle
+#         self.Status         = Status
+#         self.Sender_Context = Sender_Context
+#         self.Options        = Options
+#
+#     def import_data(self, data, offset=0):
+#         self.header_size = struct.calcsize(self.ENIPHeaderStruct)
+#         if len(data) - offset >= self.header_size:
+#             ENIP_header = struct.unpack(self.ENIPHeaderStruct, data[offset:self.header_size])
+#             self.Command        = ENIP_header[0]
+#             self.Length         = ENIP_header[1]
+#             self.Session_Handle = ENIP_header[2]
+#             self.Status         = ENIP_header[3]
+#             self.Sender_Context = ENIP_header[4]
+#             self.Options        = ENIP_header[5]
+#             return self.header_size
+#         return -1
+#
+#     def export_data(self):
+#         return struct.pack(self.ENIPHeaderStruct,   self.Command,
+#                                                     self.Length,
+#                                                     self.Session_Handle,
+#                                                     self.Status,
+#                                                     self.Sender_Context,
+#                                                     self.Options
+#                             )
+#
+#
+#     def keys(self):
+#         return ('Command', 'Length', 'Session_Handle', 'Status', 'Sender_Context', 'Options')
+#
+#     def get_dict(self):
+#         return {key:self.__dict__[key ]for key in self.keys()}
 
-    ENIPHeaderStruct = '<HHIIQI'
+
+class ENIPEncapsulationHeader(DT.base_structure_auto_keys):
 
     def __init__(self, Command=None, Length=None, Session_Handle=None, Status=None, Sender_Context=None, Options=0) :
 
-        self.Command        = Command
-        self.Length         = Length
-        self.Session_Handle = Session_Handle
-        self.Status         = Status
-        self.Sender_Context = Sender_Context
-        self.Options        = Options
-
-    def import_data(self, data, offset=0):
-        self.header_size = struct.calcsize(self.ENIPHeaderStruct)
-        if len(data) - offset >= self.header_size:
-            ENIP_header = struct.unpack(self.ENIPHeaderStruct, data[offset:self.header_size])
-            self.Command        = ENIP_header[0]
-            self.Length         = ENIP_header[1]
-            self.Session_Handle = ENIP_header[2]
-            self.Status         = ENIP_header[3]
-            self.Sender_Context = ENIP_header[4]
-            self.Options        = ENIP_header[5]
-            return self.header_size
-        return -1
-
-    def export_data(self):
-        return struct.pack(self.ENIPHeaderStruct,   self.Command,
-                                                    self.Length,
-                                                    self.Session_Handle,
-                                                    self.Status,
-                                                    self.Sender_Context,
-                                                    self.Options
-                            )
-
-
-    def keys(self):
-        return ('Command', 'Length', 'Session_Handle', 'Status', 'Sender_Context', 'Options')
-
-    def get_dict(self):
-        return {key:self.__dict__[key ]for key in self.keys()}
+        self.Command        = DT.UINT(Command)
+        self.Length         = DT.UINT(Length)
+        self.Session_Handle = DT.UDINT(Session_Handle)
+        self.Status         = DT.UDINT(Status)
+        self.Sender_Context = DT.ULINT(Sender_Context)
+        self.Options        = DT.UDINT(Options)
 
 
 class ListIdentityRsp(CIPDataStructure):

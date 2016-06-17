@@ -189,3 +189,5 @@ class Identity(base_structure):
                 'Serial_Number',
                 'Product_Name',
                 )
+    def __bytes__(self):
+        return bytes(self.export_data())
