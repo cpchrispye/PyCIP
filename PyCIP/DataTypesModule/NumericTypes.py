@@ -170,79 +170,92 @@ class NumberI():
 
     def __iadd__(self, *args, **kwargs):
         try:
-            return self.internal_data.__iadd__(*args, **kwargs)
+            self.internal_data = self.internal_data.__add__(*args, **kwargs)
+            return self
         except:
             raise NotImplementedError
 
     def __isub__(self, *args, **kwargs):
         try:
-            return self.internal_data.__isub__(*args, **kwargs)
+            self.internal_data = self.internal_data.__sub__(*args, **kwargs)
+            return self
         except:
             raise NotImplementedError
 
     def __imul__(self, *args, **kwargs):
         try:
-            return self.internal_data.__imul__(*args, **kwargs)
+            self.internal_data = self.internal_data.__mul__(*args, **kwargs)
+            return self
         except:
             raise NotImplementedError
 
     def __imatmul__(self, *args, **kwargs):
         try:
-            return self.internal_data.__imatmul__(*args, **kwargs)
+            self.internal_data = self.internal_data.__matmul__(*args, **kwargs)
+            return self
         except:
             raise NotImplementedError
 
     def __itruediv__(self, *args, **kwargs):
         try:
-            return self.internal_data.__itruediv__(*args, **kwargs)
+            self.internal_data = self.internal_data.__truediv__(*args, **kwargs)
+            return self
         except:
             raise NotImplementedError
 
     def __ifloordiv__(self, *args, **kwargs):
         try:
-            return self.internal_data.__ifloordiv__(*args, **kwargs)
+            self.internal_data = self.internal_data.__floordiv__(*args, **kwargs)
+            return self
         except:
             raise NotImplementedError
 
     def __imod__(self, *args, **kwargs):
         try:
-            return self.internal_data.__imod__(*args, **kwargs)
+            self.internal_data = self.internal_data.__mod__(*args, **kwargs)
+            return self
         except:
             raise NotImplementedError
 
     def __ipow__(self, *args, **kwargs):
         try:
-            return self.internal_data.__ipow__(*args, **kwargs)
+            self.internal_data = self.internal_data.__pow__(*args, **kwargs)
+            return self
         except:
             raise NotImplementedError
 
     def __ilshift__(self, *args, **kwargs):
         try:
-            return self.internal_data.__ilshift__(*args, **kwargs)
+            self.internal_data = self.internal_data.__lshift__(*args, **kwargs)
+            return self
         except:
             raise NotImplementedError
 
     def __irshift__(self, *args, **kwargs):
         try:
-            return self.internal_data.__irshift__(*args, **kwargs)
+            self.internal_data = self.internal_data.__rshift__(*args, **kwargs)
+            return self
         except:
             raise NotImplementedError
 
     def __iand__(self, *args, **kwargs):
         try:
-            return self.internal_data.__iand__(*args, **kwargs)
+            self.internal_data = self.internal_data.__and__(*args, **kwargs)
+            return self
         except:
             raise NotImplementedError
 
     def __ixor__(self, *args, **kwargs):
         try:
-            return self.internal_data.__ixor__(*args, **kwargs)
+            self.internal_data = self.internal_data.__xor__(*args, **kwargs)
+            return self
         except:
             raise NotImplementedError
 
     def __ior__(self, *args, **kwargs):
         try:
-            return self.internal_data.__ior__(*args, **kwargs)
+            self.internal_data = self.internal_data.__or__(*args, **kwargs)
+            return self
         except:
             raise NotImplementedError
 

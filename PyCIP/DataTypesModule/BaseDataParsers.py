@@ -98,7 +98,7 @@ class virtual_base_structure():
 
 
 
-class base_data(virtual_base_data, NumberBasic, NumberComp, NumberInt):
+class base_data(virtual_base_data, NumberBasic, NumberComp, NumberInt, NumberI):
 
     _byte_size = 0
     _signed    = None
