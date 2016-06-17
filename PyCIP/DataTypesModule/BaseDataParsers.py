@@ -1,4 +1,5 @@
 from abc import ABCMeta, abstractmethod
+from  DataTypesModule.NumericTypes import *
 
 class virtual_base_data():
     __metaclass__ = ABCMeta
@@ -97,13 +98,21 @@ class virtual_base_structure():
 
 
 
-class base_data(virtual_base_data):
+class base_data(virtual_base_data, NumberBasic, NumberComp, NumberInt):
 
     _byte_size = 0
     _signed    = None
 
     def __init__(self, value=None):
         self._value = value
+
+    @property
+    def internal_data(self):
+        return self._value
+
+    @internal_data.setter
+    def internal_data(self, val):
+        self._value = val
 
     def import_data(self, data, offset=0, endian='little'):
         section = data[offset: offset + self._byte_size]
