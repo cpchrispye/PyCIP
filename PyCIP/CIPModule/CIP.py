@@ -37,7 +37,7 @@ class Basic_CIP():
                 message_response.import_data(packet.data)
                 packet.CIP = message_response
                 packet.data = packet.data[packet.CIP.byte_size:]
-                signal_id = packet.encapsulation_header.Sender_Context
+                signal_id = packet.encapsulation_header.Sender_Context()
                 self.transport_messenger.unregister(message_structure.signal_id)
 
             # Connected Explicit

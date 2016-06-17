@@ -118,8 +118,9 @@ class base_data(virtual_base_data):
     def sizeof(self):
         return self._byte_size
 
-    def __call__(self, value):
-        self._value = value
+    def __call__(self, value=None):
+        if value is not None:
+            self._value = value
         return self._value
 
     def __str__(self):
@@ -219,9 +220,12 @@ class base_structure():
             for performance items, values are calculated once off the keys.
             if keys are ever modified they must be recalculated
         '''
-        del self._items
-        del self._values
-        del self._dict
+        try:
+            del self._items
+            del self._values
+            del self._dict
+        except:
+            pass
 
 
 class base_structure_auto_keys(base_structure):

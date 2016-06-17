@@ -2,7 +2,6 @@ import ENIPModule
 import CIPModule
 from DataTypesModule import LogicalSegment, LogicalType, LogicalFormat, DataSegment, EPATH, DataSubType, TransportPacket, CIPServiceCode,\
                             ShortStringDataParser
-from DataTypesModule.BaseDataTypes import Identity
 import time
 
 def main():
@@ -10,24 +9,12 @@ def main():
     ENIP_Layer = ENIPModule.ENIP_Originator()
 
     # broadcast a list identity
-    devices = ENIP_Layer.list_identity()
+    rsp = ENIP_Layer.list_identity()
+    devices = ENIPModule.parse_list_identity(rsp)
+    print("devices found: " + ', '.join(devices.keys()))
 
-    reply = False
-    # loop through all devices response
-    for device_packet in devices:
-        # loop through all cip items
-        for ifc in device_packet.Target_Items:
-            # get ip address
-            device_ip = ifc.Socket_Address.sin_addr
-            print("connecting to device %s" % device_ip)
-            # connect to module
-            reply = ENIP_Layer.register_session(str(device_ip))
-            if reply:
-                print("connected")
-                break
-            print("failed")
-        if reply:
-            break
+    device_ip = devices['1715-AENTR'][0]
+    reply = ENIP_Layer.register_session(str(device_ip))
     if not reply:
         return
 
@@ -44,9 +31,6 @@ def main():
     print()
 
     data = con.get_attr_all(1,1).data
-
-    ID = Identity()
-    ID.import_data(data)
 
     # CIP handler can perform common services such as get attr,
     # raw rsp come in the form of a transport packet from DataTypes.TransportPacket

@@ -134,8 +134,7 @@ class ENIP_Originator():
             time.sleep(time_sleep)
             timeout -= time_sleep
             if timeout <= 0:
-                for s in self.stream_connection:
-                    s.close()
+                self.stream_connection.close()
                 self.manage_connection = False
                 return False
         return True
@@ -160,7 +159,7 @@ class ENIP_Originator():
     def list_identity(target_ip='255.255.255.255', target_port=44818, udp=True):
         sockets = []
         responses = []
-        delay = 100
+        delay = 1000
         header = ENIPEncapsulationHeader(ENIPCommandCode.ListIdentity, 0, 0, 0, delay, 0)
         data = header.export_data()
         networks = Tools.networking.list_networks()
@@ -268,10 +267,10 @@ class ENIP_Originator():
     def _ENIP_context_packet_mgmt(self):
         for packet in  self.internal_buffer:
 
-            if packet.encapsulation_header.Command == ENIPCommandCode.RegisterSession and self.session_handle == None:
-                self.session_handle = packet.encapsulation_header.Session_Handle
+            if packet.encapsulation_header.Command() == ENIPCommandCode.RegisterSession and self.session_handle == None:
+                self.session_handle = packet.encapsulation_header.Session_Handle()
 
-            if packet.encapsulation_header.Command == ENIPCommandCode.UnRegisterSession:
+            if packet.encapsulation_header.Command() == ENIPCommandCode.UnRegisterSession:
                 self.manage_connection = False
 
     def _import_encapsulated_rcv(self, packet, socket):
@@ -279,7 +278,7 @@ class ENIP_Originator():
 
         header    = ENIPEncapsulationHeader()
         offset    = header.import_data(packet)
-        packet_length = header.Length + header.header_size
+        packet_length = header.Length() + header.sizeof()
         if offset < 0 or packet_length  > len(packet):
             return -1
 
@@ -287,7 +286,7 @@ class ENIP_Originator():
         CPF_Array = None
 
         if offset < packet_length:
-            parsed_cmd_spc = CommandSpecificParser().import_data(packet, header.Command, response=True, offset=offset)
+            parsed_cmd_spc = CommandSpecificParser().import_data(packet, header.Command(), response=True, offset=offset)
             offset += parsed_cmd_spc.byte_size
         if offset < packet_length:
             CPF_Array = DT.CPF_Items()
@@ -300,22 +299,22 @@ class ENIP_Originator():
                                              data=packet[offset:packet_length]
                                             )
 
-        if header.Command == ENIPCommandCode.SendUnitData:
+        if header.Command() == ENIPCommandCode.SendUnitData:
             rsp_identifier = CPF_Array[0].Connection_Identifier
         else:
-            rsp_identifier = header.Sender_Context
+            rsp_identifier = header.Sender_Context()
 
         parsed_packet.response_id = rsp_identifier
-        if header.Command in (ENIPCommandCode.SendUnitData, ENIPCommandCode.SendRRData):
+        if header.Command() in (ENIPCommandCode.SendUnitData, ENIPCommandCode.SendRRData):
             self.messager.send_message(rsp_identifier, parsed_packet)
 
-        elif header.Command in (ENIPCommandCode.RegisterSession, ENIPCommandCode.UnRegisterSession,
+        elif header.Command() in (ENIPCommandCode.RegisterSession, ENIPCommandCode.UnRegisterSession,
                                 ENIPCommandCode.NOP, ENIPCommandCode.ListIdentity, ENIPCommandCode.ListServices):
             self.internal_buffer.append(parsed_packet)
         else:
             print('unsupported ENIP command')
 
-        del packet[:header.Length + header.header_size]
+        del packet[:header.Length() + header.sizeof()]
 
     def _import_IO_rcv(self, packet, socket):
         transport = trans_metadata(socket, 'udp')
@@ -353,48 +352,6 @@ class trans_metadata():
 
         self.recevied_time = time.time()
 
-# class ENIPEncapsulationHeader(CIPDataStructureVirtual):
-#
-#     ENIPHeaderStruct = '<HHIIQI'
-#
-#     def __init__(self, Command=None, Length=None, Session_Handle=None, Status=None, Sender_Context=None, Options=0) :
-#
-#         self.Command        = Command
-#         self.Length         = Length
-#         self.Session_Handle = Session_Handle
-#         self.Status         = Status
-#         self.Sender_Context = Sender_Context
-#         self.Options        = Options
-#
-#     def import_data(self, data, offset=0):
-#         self.header_size = struct.calcsize(self.ENIPHeaderStruct)
-#         if len(data) - offset >= self.header_size:
-#             ENIP_header = struct.unpack(self.ENIPHeaderStruct, data[offset:self.header_size])
-#             self.Command        = ENIP_header[0]
-#             self.Length         = ENIP_header[1]
-#             self.Session_Handle = ENIP_header[2]
-#             self.Status         = ENIP_header[3]
-#             self.Sender_Context = ENIP_header[4]
-#             self.Options        = ENIP_header[5]
-#             return self.header_size
-#         return -1
-#
-#     def export_data(self):
-#         return struct.pack(self.ENIPHeaderStruct,   self.Command,
-#                                                     self.Length,
-#                                                     self.Session_Handle,
-#                                                     self.Status,
-#                                                     self.Sender_Context,
-#                                                     self.Options
-#                             )
-#
-#
-#     def keys(self):
-#         return ('Command', 'Length', 'Session_Handle', 'Status', 'Sender_Context', 'Options')
-#
-#     def get_dict(self):
-#         return {key:self.__dict__[key ]for key in self.keys()}
-
 
 class ENIPEncapsulationHeader(DT.base_structure_auto_keys):
 
@@ -427,3 +384,13 @@ class ListIdentityRsp(CIPDataStructure):
             ]
         ]),
     ]
+
+def parse_list_identity(list_identity):
+    names = {}
+    for device_packet in list_identity:
+        # loop through all cip items
+        ips = []
+        for ifc in device_packet.Target_Items:
+            ips.append(ifc.Socket_Address.sin_addr)
+        names[ifc.Product_Name] = ips
+    return names

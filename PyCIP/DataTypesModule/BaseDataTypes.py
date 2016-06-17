@@ -160,34 +160,3 @@ class SHORTSTRING(base_data):
         return self._byte_size
 
 
-class Revision(base_structure):
-    def __init__(self):
-        self.Major_Revision = USINT()
-        self.Minor_Revision = USINT()
-
-    def keys(self):
-        return ('Major_Revision', 'Minor_Revision')
-
-class Identity(base_structure):
-
-    def __init__(self):
-        self.Vendor_ID = UINT()
-        self.Device_Type = UINT()
-        self.Product_Code = UINT()
-        self.Revision = Revision()
-        self.Status = WORD()
-        self.Serial_Number = UDINT()
-        self.Product_Name = SHORTSTRING()
-
-    def keys(self):
-        return (
-                'Vendor_ID',
-                'Device_Type',
-                'Product_Code',
-                'Revision',
-                'Status',
-                'Serial_Number',
-                'Product_Name',
-                )
-    def __bytes__(self):
-        return bytes(self.export_data())
