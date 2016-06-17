@@ -158,7 +158,20 @@ class CIP_Manager():
             self.e_connected_connection = Basic_CIP(self.trans)
             self.e_connected_connection.set_connection(self._fwd_rsp.OT_connection_ID, self._fwd_rsp.TO_connection_ID)
             self.current_connection = self.e_connected_connection
-            return True
+            return self._fwd_rsp
+        return False
+
+    def forward_close(self, EPath=None, **kwargs):
+        if EPath == None:
+            self.path = EPATH()
+            self.path.append(LogicalSegment(LogicalType.ClassID, LogicalFormat.bit_8, 2))
+            self.path.append(LogicalSegment(LogicalType.InstanceID, LogicalFormat.bit_8, 1))
+        else:
+            self.path = EPath
+        fwd_rsp = self.connection_manager.forward_close(self.path, **kwargs)
+        if fwd_rsp:
+            self.current_connection = None
+            return fwd_rsp
         return False
 
     def _send(self, routing_type, service, request_path, data=bytes(), EPath=EPATH()):
@@ -174,6 +187,8 @@ class CIP_Manager():
 
         elif routing_type == RoutingType.ExplicitUnConnected:
             message = explicit_request(service, request_path, data=data)
+            if EPath == None:
+                EPath = bytes()
             return self.connection_manager.unconnected_send(message, EPath)
 
     def _receive(self, routing_type, receipt):
