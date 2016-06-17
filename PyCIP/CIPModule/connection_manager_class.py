@@ -51,12 +51,21 @@ class ConnectionManager():
                                                         ('trigger','BYTE'),
                                                         ('path_len','USINT')
                                                     )
-
+        self.struct_fwd_close_send = CIPDataStructure(
+                                                        ('tick','BYTE'),
+                                                        ('time_out','USINT'),
+                                                        ('connection_serial','UINT'),
+                                                        ('O_vendor_ID','UINT'),
+                                                        ('O_serial','UDINT'),
+                                                        ('Reserved', 'USINT'),
+                                                        ('path_len','USINT')
+                                                    )
     def unconnected_send(self, data, route):
 
         packet = bytearray()
-        class_val = EPath_item(SegmentType.LogicalSegment, LogicalType.ClassID, LogicalFormat.bit_8, 6)
-        insta_val = EPath_item(SegmentType.LogicalSegment, LogicalType.InstanceID, LogicalFormat.bit_8, 1)
+        e_path = EPATH()
+        e_path.append(LogicalSegment(LogicalType.ClassID, LogicalFormat.bit_8, 6))
+        e_path.append(LogicalSegment( LogicalType.InstanceID, LogicalFormat.bit_8, 1))
 
         header = self.unconnected_send_struct_header
         header.Time_tick = 100
@@ -83,11 +92,11 @@ class ConnectionManager():
         packet += footer.export_data()
         packet += port_path
 
-        receipt = self.trans.explicit_message(CIPServiceCode.unconnected_Send, class_val, insta_val, data=packet, use_UCMM=False)
+        receipt = self.trans.explicit_message(CIPServiceCode.unconnected_Send, e_path, data=packet)
         return receipt
 
 
-    def forward_open(self, EPath, tick=6, time_out=0x28, OT_connection_ID=None, TO_connection_ID=None, connection_serial=None,
+    def forward_open(self, EPath, tick=10, time_out=1, OT_connection_ID=None, TO_connection_ID=None, connection_serial=None,
                      O_vendor_ID=88, O_serial=12345678, time_out_multiplier=0, reserved_1=0, reserved_2=0, reserved_3=0, OT_RPI=0x03E7FC18,
                      OT_connection_params=0x43FF, TO_RPI=0x03E7FC18, TO_connection_params=0x43FF, trigger=0xa3):
 
@@ -122,5 +131,30 @@ class ConnectionManager():
         if response and response.CIP.General_Status == 0:
             self.struct_fwd_open_rsp.import_data(response.data)
             return self.struct_fwd_open_rsp
-        return None
+        return False
 
+
+    def forward_close(self, EPath, tick=6, time_out=0x28, connection_serial=None, O_vendor_ID=88, O_serial=12345678):
+
+        message_router_path = EPATH()
+        message_router_path.append(LogicalSegment(LogicalType.ClassID, LogicalFormat.bit_8, 6))
+        message_router_path.append(LogicalSegment(LogicalType.InstanceID, LogicalFormat.bit_8, 1))
+
+        connection_path_bytes = EPath.export_data()
+
+        self.struct_fwd_close_send.tick = tick
+        self.struct_fwd_close_send.time_out = time_out
+        self.struct_fwd_close_send.connection_serial = connection_serial if connection_serial != None else self.struct_fwd_open_send.connection_serial
+        self.struct_fwd_close_send.O_vendor_ID = O_vendor_ID
+        self.struct_fwd_close_send.O_serial = O_serial
+        self.struct_fwd_close_send.Reserved = 0
+        self.struct_fwd_close_send.path_len = len(connection_path_bytes)//2
+
+        command_specific = self.struct_fwd_close_send.export_data()
+
+        receipt = self.trans.explicit_message(CIPServiceCode.forward_close, message_router_path, data=(command_specific + connection_path_bytes))
+        response = self.trans.receive(receipt)
+        if response and response.CIP.General_Status == 0:
+            self.struct_fwd_open_rsp.import_data(response.data)
+            return self.struct_fwd_open_rsp
+        return None
