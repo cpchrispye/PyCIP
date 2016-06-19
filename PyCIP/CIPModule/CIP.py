@@ -113,7 +113,7 @@ class MessageRouterResponseStruct(BaseStructureAutoKeys):
 
     def __init__(self):
         self.Sequence_Count = UINT()
-        self.Reply_Service = USINT()
+        self.Reply_Service = ReplyService()
         self.Reserved = USINT()
         self.General_Status = USINT()
         self.Size_of_Additional_Status = USINT()
@@ -123,7 +123,7 @@ class MessageRouterResponseStruct(BaseStructureAutoKeys):
 class MessageRouterResponseStruct_UCMM(BaseStructureAutoKeys):
 
     def __init__(self):
-        self.Reply_Service = ReplyService()#USINT()
+        self.Reply_Service = ReplyService()
         self.Reserved = USINT()
         self.General_Status = USINT()
         self.Size_of_Additional_Status = USINT()
