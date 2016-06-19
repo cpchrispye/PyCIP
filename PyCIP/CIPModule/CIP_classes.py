@@ -1,30 +1,22 @@
 from CIPModule import CIP
-from DataTypesModule.DataTypes import *
-from DataTypesModule.DataParsers import *
+from DataTypesModule import *
 
-class Identity_Object():
+class Identity_Object(BaseStructureAutoKeys):
 
-    def __init__(self, transport, **kwargs):
-        self.transport = transport
-        self.struct = CIPDataStructure(
-            ('Vendor_ID', 'UINT'),
-            ('Device_Type', 'UINT'),
-            ('Product_Code', 'UINT'),
-            ('Revision', [
-                ('Major_Revision', 'USINT'),
-                ('Minor_Revision', 'USINT'),
-            ]),
-            ('Status', 'WORD'),
-            ('Serial_Number', 'UDINT'),
-            ('Product Name', 'SHORT_STRING')
-        )
+    def __init__(self, transport):
+        self._transport = transport
+
+        self.Vendor_ID = UINT()
+        self.Device_Type = UINT()
+        self.Product_Code = UINT()
+        self.Revision = Revision()
+        self.Status = WORD()
+        self.Serial_Number = UDINT()
+        self.Product_Name = SHORTSTRING()
+
         self.update()
 
     def update(self):
-        rsp = self.transport.get_attr_all(1, 1)
+        rsp = self._transport.get_attr_all(1, 1)
         if rsp.CIP.General_Status == 0:
-            self.struct.import_data(rsp.data)
-            self.__dict__.update(self.struct.get_dict())
-
-    def __str__(self):
-        return self.struct.print()
+            self.import_data(rsp.data)

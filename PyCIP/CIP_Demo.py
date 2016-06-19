@@ -24,8 +24,8 @@ def main():
 
     # convenience object can use the CIP handler, they have knowledge of the CIP object structure and services
     ID1 = CIPModule.Identity_Object(con)
-    print(ID1)
-    print()
+    print_structure(ID1)
+
 
     DLR = CIPModule.DLR_Object(con)
     print(DLR)

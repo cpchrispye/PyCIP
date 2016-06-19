@@ -70,7 +70,7 @@ class Basic_CIP():
         self.OT_connection_id = None
         self.TO_connection_id = None
 
-    def explicit_message(self, service, EPath, data=bytes(), receive=True):
+    def explicit_message(self, service, EPath, data=None, receive=True):
         packet = bytearray()
         if self.connected:
             self.sequence_number += 1
@@ -84,9 +84,9 @@ class Basic_CIP():
             # if we want the manager to be notified that this message has been responded too, we must register
             self.transport_messenger.register(receive_id)
             if self.connected:
-                receipt =  sequence_number
+                receipt = sequence_number
             else:
-                receipt =  receive_id
+                receipt = receive_id
             self.cip_messenger.register(receipt)
         else:
             receive_id = None
@@ -103,6 +103,10 @@ class Basic_CIP():
         else:
             return None
 
+class ReplyService(BaseBitFieldStruct):
+    def __init__(self):
+        self.RequestResponse = BaseBitField(1)
+        self.Service = BaseBitField(7)
 
 #vol1 ver 3.18 2-4.2
 class MessageRouterResponseStruct(BaseStructureAutoKeys):
@@ -119,19 +123,20 @@ class MessageRouterResponseStruct(BaseStructureAutoKeys):
 class MessageRouterResponseStruct_UCMM(BaseStructureAutoKeys):
 
     def __init__(self):
-        self.Reply_Service = USINT()
+        self.Reply_Service = ReplyService()#USINT()
         self.Reserved = USINT()
         self.General_Status = USINT()
         self.Size_of_Additional_Status = USINT()
         self.Additional_Status = ARRAY(WORD, self.Size_of_Additional_Status)
 
-def explicit_request(service, EPath, data=bytes()):
+def explicit_request(service, EPath, data=None):
     request = bytearray()
     request.append(service)
     EPath_bytes = EPath.export_data()
     request.append(len(EPath_bytes)//2)
     request += EPath_bytes
-    request += data
+    if data is not None:
+        request += data
     return request
 
 
@@ -173,78 +178,57 @@ class CIP_Manager():
             self.path = EPath
         fwd_rsp = self.connection_manager.forward_close(self.path, **kwargs)
         if fwd_rsp:
-            self.current_connection = None
+            self.current_connection.clear_connection()
+            del self.current_connection
             return fwd_rsp
         return False
 
-    def _send(self, routing_type, service, request_path, data=bytes(), EPath=EPATH()):
+    def explicit_message(self, service, request_path, data=None, route=None, try_connected=True):
 
-        if routing_type == RoutingType.ExplicitDefault or routing_type == None:
-            return self.current_connection.explicit_message(service, request_path, data=data)
-
-        elif routing_type == RoutingType.ExplicitDirect:
-            return self.primary_connection.explicit_message(service, request_path, data=data)
-
-        elif routing_type == RoutingType.ExplicitConnected:
-            return self.e_connected_connection.explicit_message(service, request_path, data=data)
-
-        elif routing_type == RoutingType.ExplicitUnConnected:
+        if try_connected and self.e_connected_connection and self.e_connected_connection.connected:
+            connection = self.e_connected_connection
+            receipt = connection.explicit_message(service, request_path, data=data)
+        elif route:
             message = explicit_request(service, request_path, data=data)
-            if EPath == None:
-                EPath = bytes()
-            return self.connection_manager.unconnected_send(message, EPath)
+            connection = self.connection_manager
+            receipt = connection.unconnected_send(message, route)
+        else:
+            connection = self.primary_connection
+            receipt = connection.explicit_message(service, request_path, data=data)
 
-    def _receive(self, routing_type, receipt):
-        if routing_type == RoutingType.ExplicitDefault or routing_type == None:
-            return self.current_connection.receive(receipt)
+        return connection.receive(receipt)
 
-        elif routing_type == RoutingType.ExplicitDirect:
-            return self.primary_connection.receive(receipt)
-
-        elif routing_type == RoutingType.ExplicitConnected:
-            return self.e_connected_connection.receive(receipt)
-
-        elif routing_type == RoutingType.ExplicitUnConnected:
-            return self.primary_connection.receive(receipt)
-
-    def get_attr_single(self, class_int, instance_int, attribute_int, routing_type=None, EPath=None):
+    def get_attr_single(self, class_int, instance_int, attribute_int, try_connected=True, route=None):
         path = EPATH()
         path.append(LogicalSegment(LogicalType.ClassID, LogicalFormat.bit_8, class_int))
         path.append(LogicalSegment(LogicalType.InstanceID, LogicalFormat.bit_8, instance_int))
         path.append(LogicalSegment(LogicalType.AttributeID, LogicalFormat.bit_8, attribute_int))
 
-        receipt = self._send(routing_type, CIPServiceCode.get_att_single, path, EPath=None)
-        return self._receive(routing_type, receipt)
+        return self.explicit_message(CIPServiceCode.get_att_single, path, try_connected=try_connected, route=route)
 
-    def get_attr_all(self, class_int, instance_int, routing_type=None, EPath=None):
+
+    def get_attr_all(self, class_int, instance_int, try_connected=True, route=None):
         path = EPATH()
         path.append(LogicalSegment(LogicalType.ClassID, LogicalFormat.bit_8, class_int))
         path.append(LogicalSegment(LogicalType.InstanceID, LogicalFormat.bit_8, instance_int))
 
-        receipt = self._send(routing_type, CIPServiceCode.get_att_all, path, EPath=None)
-        return self._receive(routing_type, receipt)
+        return self.explicit_message(CIPServiceCode.get_att_all, path, try_connected=try_connected, route=route)
 
-    def set_attr_single(self, class_int, instance_int, attribute_int, data, routing_type=None, EPath=None):
+    def set_attr_single(self, class_int, instance_int, attribute_int, data, try_connected=True, route=None):
         path = EPATH()
         path.append(LogicalSegment(LogicalType.ClassID, LogicalFormat.bit_8, class_int))
         path.append(LogicalSegment(LogicalType.InstanceID, LogicalFormat.bit_8, instance_int))
         path.append(LogicalSegment(LogicalType.AttributeID, LogicalFormat.bit_8, attribute_int))
 
-        receipt = self._send(routing_type, CIPServiceCode.set_att_single, path, data=data, EPath=None)
-        return self._receive(routing_type, receipt)
+        return self.explicit_message(CIPServiceCode.set_att_single, path, try_connected=try_connected, route=route)
 
-    def set_attr_all(self, class_int, instance_int, attribute_int, data, routing_type=None, EPath=None):
+    def set_attr_all(self, class_int, instance_int, attribute_int, data, try_connected=True, route=None):
         path = EPATH()
         path.append(LogicalSegment(LogicalType.ClassID, LogicalFormat.bit_8, class_int))
         path.append(LogicalSegment(LogicalType.InstanceID, LogicalFormat.bit_8, instance_int))
 
-        receipt = self._send(routing_type, CIPServiceCode.set_att_all, path, data=data, EPath=None)
-        return self._receive(routing_type, receipt)
+        return self.explicit_message(CIPServiceCode.set_att_single, path, try_connected=try_connected, route=route)
 
-    def raw_CIP_send(self, service, path, data=bytes(), routing_type=None, EPath=None):
-
-        receipt = self._send(routing_type, service, path, data=data, EPath=None)
-        return self._receive(routing_type, receipt)
 
 class RoutingType(IntEnum):
 

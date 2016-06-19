@@ -182,6 +182,7 @@ class BaseStructure(VirtualBaseStructure):
                 try:
                     self._items.append((k, self.__dict__[k]))
                 except:
+                    # for subclassed container types
                     self._items.append((k, self[k]))
         return self._items
 
@@ -240,12 +241,11 @@ class BaseStructure(VirtualBaseStructure):
             for performance items, values are calculated once off the keys.
             if keys are ever modified they must be recalculated
         '''
-        try:
-            del self._items
-            del self._values
-            del self._dict
-        except:
-            pass
+        for at in ('_items', '_values', '_dict'):
+            try:
+                delattr(self, at)
+            except:
+                pass
 
     def data_dump(self):
         output = []

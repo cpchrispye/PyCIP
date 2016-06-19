@@ -100,12 +100,6 @@ class SocketAddress(DT.BaseStructureAutoKeys):
         self.sin_addr = DT.IPAddress(endian='big')
         self.sin_zero = DT.ARRAY(DT.USINT, 8)
 
-class Revision(DT.BaseStructureAutoKeys):
-
-    def __init__(self):
-        self.Major = DT.USINT()
-        self.Minor = DT.USINT()
-
 class TargetItems(DT.BaseStructureAutoKeys):
 
     def __init__(self):
@@ -116,7 +110,7 @@ class TargetItems(DT.BaseStructureAutoKeys):
         self.Vendor_ID      = DT.UINT()
         self.Device_Type    = DT.UINT()
         self.Product_Code   = DT.UINT()
-        self.Revision       = Revision()
+        self.Revision       = DT.Revision()
         self.Status         = DT.WORD()
         self.Serial_Number  = DT.UDINT()
         self.Product_Name   = DT.SHORTSTRING()
