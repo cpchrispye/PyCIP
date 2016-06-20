@@ -145,18 +145,22 @@ class BaseData(VirtualBaseData, NumberInt, NumberComp, NumberBasic):
 
 class BaseStructure(VirtualBaseStructure):
 
-    def import_data(self, bytes, offset=0):
+    def import_data(self, bytes, offset=0, key_filter=None):
         length = len(bytes)
         start_offset = offset
-        for parser in self:
+        for parser, i in zip(self, range(len(self))):
+            if key_filter and i not in key_filter:
+                continue
             offset += parser.import_data(bytes, offset)
             if length <= offset:
                 break
         return offset - start_offset
 
-    def export_data(self):
+    def export_data(self, key_filter=None):
         output_stream = bytearray()
-        for parser in self:
+        for parser, i in zip(self, range(len(self))):
+            if key_filter and i not in key_filter:
+                continue
             output_stream += parser.export_data()
         return output_stream
 
