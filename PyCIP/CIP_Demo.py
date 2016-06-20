@@ -20,7 +20,7 @@ def main():
 
     # create a CIP handler with a ENIP layer
     con = CIPModule.CIP_Manager(ENIP_Layer)
-    data = con.get_attr_all(1,1)
+    data = con.get_attr_all(1, 1)
 
     # convenience object can use the CIP handler, they have knowledge of the CIP object structure and services
     ID1 = CIPModule.Identity_Object(con)
@@ -53,15 +53,17 @@ def main():
 
     # first building a EPATH object this is a path to the name field in the identity object
     epath = EPATH()
-    epath.append(LogicalSegment(LogicalType.ClassID, LogicalFormat.bit_8, 1))
-    epath.append(LogicalSegment(LogicalType.InstanceID, LogicalFormat.bit_8, 1))
-    epath.append(LogicalSegment(LogicalType.AttributeID, LogicalFormat.bit_8, 7))
+    epath.append(LogicalSegment(LogicalType.ClassID, LogicalFormat.bit_8, 0x04))
+    epath.append(LogicalSegment(LogicalType.InstanceID, LogicalFormat.bit_8, 0x67))
+    epath.append(LogicalSegment(LogicalType.ConnectionPoint, LogicalFormat.bit_8, 0x68))
+    epath.append(LogicalSegment(LogicalType.ConnectionPoint, LogicalFormat.bit_8, 0x6A))
+    epath.append(DataSegment(DataSubType.SimpleData, bytearray([0,0,0,0])))
 
     # raw send is used along with the service code
-    rsp = con.raw_CIP_send(CIPServiceCode.get_att_single, epath)
+    rsp = con.forward_open(epath)
 
     # check to see if successful before parsing
-    if rsp.CIP.General_Status == 0:
+    if rsp:
         parsed_string = ShortStringDataParser().import_data(rsp.data)
         print(parsed_string)
 
