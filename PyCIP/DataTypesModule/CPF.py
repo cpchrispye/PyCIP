@@ -1,9 +1,7 @@
-#import DataTypesModule
-from .DataTypes import *
-from .DataParsers import *
-from abc import abstractmethod, ABCMeta
+
 from DataTypesModule.BaseDataParsers import BaseStructureAutoKeys
 from DataTypesModule.BaseDataTypes import *
+from DataTypesModule.SpecialDataTypes import *
 from enum import IntEnum
 
 class CPF_Codes(IntEnum):
@@ -50,12 +48,31 @@ class CPF_UnconnectedData(CPF_Item):
     type_id = CPF_Codes.UnconnectedData
     def __init__(self, Length=0):
         super().__init__(Length)
+        self.data = BYTES_RAW(self.Length)
 
 class CPF_ConnectedData(CPF_Item):
     type_id = CPF_Codes.ConnectedData
     def __init__(self, Length=0):
         super().__init__(Length)
+        self.data = BYTES_RAW(self.Length)
 
+class CPF_SockaddrOT(CPF_Item):
+    type_id = CPF_Codes.OTSockaddrInfo
+    def __init__(self, Length=0):
+        super().__init__(Length)
+        self.sin_family = INT(endian='big')
+        self.sin_port   = UINT(endian='big')
+        self.sin_addr   = IPAddress(endian='big')
+        self.sin_zero   = ARRAY(USINT, 8)
+
+class CPF_SockaddrTO(CPF_Item):
+    type_id = CPF_Codes.TOSockaddrInfo
+    def __init__(self, Length=0):
+        super().__init__(Length)
+        self.sin_family = INT(endian='big')
+        self.sin_port   = UINT(endian='big')
+        self.sin_addr   = IPAddress(endian='big')
+        self.sin_zero   = ARRAY(USINT, 8)
 
 class CPF_Items(list, BaseStructure):
     _CPF_dict = { CPF_object.type_id:CPF_object for CPF_object in CPF_Item.__subclasses__() }

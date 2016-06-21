@@ -60,7 +60,7 @@ def main():
     epath.append(DataSegment(DataSubType.SimpleData, bytearray([0,0,0,0])))
 
     # raw send is used along with the service code
-    rsp = con.forward_open(epath)
+    rsp = con.forward_open(epath, OT_connection_params=0x480A, TO_connection_params=0x4838, trigger=0x01)
 
     # check to see if successful before parsing
     if rsp:

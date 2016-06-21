@@ -1,7 +1,6 @@
 from collections import OrderedDict
 import random
-from DataTypesModule.DataParsers import *
-from DataTypesModule.DataTypes import *
+from DataTypesModule import *
 
 class ConnectionManager():
 

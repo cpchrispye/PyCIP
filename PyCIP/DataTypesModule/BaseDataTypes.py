@@ -1,5 +1,27 @@
 from DataTypesModule.BaseDataParsers import BaseData, BaseStructure, VirtualBaseStructure
 
+class BYTES_RAW(bytearray, BaseData):
+
+    def __init__(self, length):
+        self._length = length
+
+    def import_data(self, bytes, offset=0):
+        self[:] = bytes[offset:offset+int(self._length)]
+        return int(self._length)
+
+    def export_data(self):
+        return self
+
+    def sizeof(self):
+        return len(self)
+
+    def __call__(self, *args, **kwargs):
+        return bytes(self)
+
+    def __bytes__(self):
+        return self
+
+
 class BOOL(BaseData):
     _byte_size = 1
     _signed = 0

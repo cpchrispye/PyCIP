@@ -92,13 +92,6 @@ class ENIPEncapsulationHeader(DT.BaseStructureAutoKeys):
         self.Sender_Context = DT.ULINT(Sender_Context)
         self.Options        = DT.UDINT(Options)
 
-class SocketAddress(DT.BaseStructureAutoKeys):
-
-    def __init__(self):
-        self.sin_family = DT.INT(endian='big')
-        self.sin_port = DT.UINT(endian='big')
-        self.sin_addr = DT.IPAddress(endian='big')
-        self.sin_zero = DT.ARRAY(DT.USINT, 8)
 
 class TargetItems(DT.BaseStructureAutoKeys):
 
@@ -106,7 +99,7 @@ class TargetItems(DT.BaseStructureAutoKeys):
         self.Item_ID        = DT.UINT()
         self.Item_Length    = DT.UINT()
         self.Version        = DT.UINT()
-        self.Socket_Address = SocketAddress()
+        self.Socket_Address = DT.SocketAddress()
         self.Vendor_ID      = DT.UINT()
         self.Device_Type    = DT.UINT()
         self.Product_Code   = DT.UINT()

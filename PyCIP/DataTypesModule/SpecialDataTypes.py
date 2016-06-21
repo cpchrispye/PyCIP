@@ -29,6 +29,14 @@ class MACAddress(ARRAY):
     def __repr__(self):
         return self.__str__()
 
+class SocketAddress(BaseStructureAutoKeys):
+
+    def __init__(self):
+        self.sin_family = INT(endian='big')
+        self.sin_port = UINT(endian='big')
+        self.sin_addr = IPAddress(endian='big')
+        self.sin_zero = ARRAY(USINT, 8)
+
 class Revision(BaseStructureAutoKeys):
 
     def __init__(self):
