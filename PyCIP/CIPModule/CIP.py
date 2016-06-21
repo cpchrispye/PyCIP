@@ -33,6 +33,7 @@ class Basic_CIP():
             # UnConnected Explicit
             if (packet.CPF[0].Type_ID == CPF_Codes.NullAddress
             and packet.CPF[1].Type_ID == CPF_Codes.UnconnectedData):
+                packet.data = packet.CPF[1].data
                 message_response = MessageRouterResponseStruct_UCMM()
                 message_response.import_data(packet.data)
                 packet.CIP = message_response
@@ -43,6 +44,7 @@ class Basic_CIP():
             # Connected Explicit
             elif(packet.CPF[0].Type_ID == CPF_Codes.ConnectedAddress
             and packet.CPF[1].Type_ID == CPF_Codes.ConnectedData):
+                packet.data = packet.CPF[1].data
                 message_response = MessageRouterResponseStruct()
                 message_response.import_data(packet.data)
                 packet.CIP = message_response
@@ -118,6 +120,7 @@ class MessageRouterResponseStruct(BaseStructureAutoKeys):
         self.General_Status = USINT()
         self.Size_of_Additional_Status = USINT()
         self.Additional_Status = ARRAY(WORD, self.Size_of_Additional_Status)
+        self.Response_Data = BYTES_RAW()
 
 #vol1 ver 3.18 2-4.2
 class MessageRouterResponseStruct_UCMM(BaseStructureAutoKeys):
@@ -128,6 +131,7 @@ class MessageRouterResponseStruct_UCMM(BaseStructureAutoKeys):
         self.General_Status = USINT()
         self.Size_of_Additional_Status = USINT()
         self.Additional_Status = ARRAY(WORD, self.Size_of_Additional_Status)
+        self.Response_Data = BYTES_RAW()
 
 def explicit_request(service, EPath, data=None):
     request = bytearray()

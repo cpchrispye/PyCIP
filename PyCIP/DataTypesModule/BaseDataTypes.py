@@ -2,11 +2,16 @@ from DataTypesModule.BaseDataParsers import BaseData, BaseStructure, VirtualBase
 
 class BYTES_RAW(bytearray, BaseData):
 
-    def __init__(self, length):
+    def __init__(self, length=None):
+        self._value = None
         self._length = length
 
     def import_data(self, bytes, offset=0):
-        self[:] = bytes[offset:offset+int(self._length)]
+        if self._length is None:
+            self[:] = bytes[offset:]
+            self._length = len(self)
+        else:
+            self[:] = bytes[offset:offset+int(self._length)]
         return int(self._length)
 
     def export_data(self):
