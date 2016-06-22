@@ -120,6 +120,15 @@ class LogicalSegment(SegType):
                                                               self.value)
         return "LogicalSegment NULL"
 
+def FormatSize(val):
+    if val < (1 << 8):
+        return LogicalFormat.bit_8
+    elif val < (1 << 16):
+        return LogicalFormat.bit_16
+    elif val < (1 << 32):
+        return LogicalFormat.bit_32
+
+
 class DataSegment(SegType):
     type_code = SegmentType.DataSegment
 

@@ -37,15 +37,12 @@ class CommandSpecific_Rsp(DT.BaseStructureAutoKeys):
 
 class NOP_CS(CommandSpecific_Rsp):
     command = ENIPCommandCode.NOP
-    pass
 
 class ListIdentity(CommandSpecific_Rsp):
     command = ENIPCommandCode.ListIdentity
-    pass
 
 class ListInterfaces(CommandSpecific_Rsp):
     command = ENIPCommandCode.ListInterfaces
-    pass
 
 class RegisterSession(CommandSpecific_Rsp):
     command = ENIPCommandCode.RegisterSession
@@ -55,19 +52,20 @@ class RegisterSession(CommandSpecific_Rsp):
 
 class UnRegisterSession(CommandSpecific_Rsp):
     command = ENIPCommandCode.UnRegisterSession
-    pass
 
 class SendRRData(CommandSpecific_Rsp):
     command = ENIPCommandCode.SendRRData
     def __init__(self, Interface_handle=None, Timeout=None):
         self.Interface_handle = DT.UDINT(Interface_handle)
         self.Timeout          = DT.UINT(Timeout)
+        self.Encapsulated_packet = DT.CPF_Items()
 
 class SendUnitData(CommandSpecific_Rsp):
     command = ENIPCommandCode.SendUnitData
     def __init__(self, Interface_handle=None, Timeout=None):
         self.Interface_handle = DT.UDINT(Interface_handle)
         self.Timeout          = DT.UINT(Timeout)
+        self.Encapsulated_packet = DT.CPF_Items()
 
 class CommandSpecificParser():
     parsers_rsp = {parser.command:parser for parser in CommandSpecific_Rsp.__subclasses__()}
@@ -77,9 +75,6 @@ class CommandSpecificParser():
 
     def get_parser(self):
         return self.parsers_rsp[self._command]
-
-
-
 
 
 class ENIPEncapsulationHeader(DT.BaseStructureAutoKeys):
@@ -98,12 +93,42 @@ class EncapsulatedPacket(DT.BaseStructure):
     def __init__(self, **kwargs) :
         self.Encapsulation_header  = ENIPEncapsulationHeader(**kwargs)
         self.Command_specific_data = CommandSpecificParser(self.Encapsulation_header.Command)
-        self.CPF                   = DT.CPF_Items()
 
         self.response_id = None
 
+    @property
+    def CPF(self):
+        try:
+            return self.Command_specific_data.Encapsulated_packet
+        except AttributeError:
+            return None
+    @CPF.setter
+    def CPF(self, val):
+        self.Command_specific_data.Encapsulated_packet = val
+
+    @property
+    def CIP(self):
+        try:
+            return self.Command_specific_data.Encapsulated_packet[1].data
+        except AttributeError:
+            return None
+    @CIP.setter
+    def CIP(self, val):
+        self.Command_specific_data.Encapsulated_packet[1].data = val
+
+    @property
+    def Response_Data(self):
+        try:
+            return self.Command_specific_data.Encapsulated_packet[1].data.Response_Data
+        except AttributeError:
+            return None
+    @Response_Data.setter
+    def Response_Data(self, val):
+        self.Command_specific_data.Encapsulated_packet[1].data.Response_Data = val
+
+
     def keys(self):
-        return ('Encapsulation_header', 'Command_specific_data', 'CPF')
+        return ('Encapsulation_header', 'Command_specific_data')
 
 class TargetItems(DT.BaseStructureAutoKeys):
 

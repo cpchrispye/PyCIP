@@ -1,5 +1,6 @@
 from abc import ABCMeta, abstractmethod
 from  DataTypesModule.NumericTypes import *
+from Tools.exceptions import ExportFailure
 
 class VirtualBaseData():
     __metaclass__ = ABCMeta
@@ -127,7 +128,11 @@ class BaseData(VirtualBaseData, NumberInt, NumberComp, NumberBasic):
             value = self._value
         if endian is None:
             endian = self._endian
-        return int(value).to_bytes(self._byte_size, endian, signed=self._signed)
+        try:
+            return int(value).to_bytes(self._byte_size, endian, signed=self._signed)
+        except Exception as e:
+            description = e.args[0]
+            raise ExportFailure(':- ' + description)
 
     def sizeof(self):
         return self._byte_size
@@ -148,10 +153,14 @@ class BaseStructure(VirtualBaseStructure):
     def import_data(self, bytes, offset=0, key_filter=None):
         length = len(bytes)
         start_offset = offset
-        for parser, i in zip(self, range(len(self))):
+        i = -1
+        for key, parser in self.items():
+            i+=1
             if key_filter and i not in key_filter:
                 continue
-            parser = parser.get_parser()() if hasattr(parser, 'get_parser') else parser # allows for factory's to select the parsers
+            if hasattr(parser, 'get_parser'): # allows for factory's to select the parsers
+                parser = (parser.get_parser())()
+                self.__setitem__(key, parser)
             offset += parser.import_data(bytes, offset)
             if length <= offset:
                 break
@@ -159,11 +168,19 @@ class BaseStructure(VirtualBaseStructure):
 
     def export_data(self, key_filter=None):
         output_stream = bytearray()
-        for parser, i in zip(self, range(len(self))):
+        i = -1
+        for key, parser in self.items():
+            i+=1
             if key_filter and i not in key_filter:
                 continue
-            parser = parser.get_parser()() if hasattr(parser, 'get_parser') else parser # allows for factory's to select the parsers
-            output_stream += parser.export_data()
+            if hasattr(parser, 'get_parser'): # allows for factory's to select the parsers
+                parser = (parser.get_parser())()
+                self.__setitem__(key, parser)
+            try:
+                output_stream += parser.export_data()
+            except ExportFailure as e:
+                description = e.args[0]
+                raise ExportFailure('.' + self.__class__.__name__  + description)
         return output_stream
 
     def sizeof(self):
@@ -228,6 +245,7 @@ class BaseStructure(VirtualBaseStructure):
         if not hasattr(value, 'sizeof'):
             raise ValueError("Structure objects must be a data parser")
         self.__dict__[attr] = value
+        self.recalculate()
 
     def __len__(self):
         return len(self.keys())
@@ -279,13 +297,14 @@ class BaseStructureAutoKeys(BaseStructure):
             self._keys = []
         if Name not in self._keys:
             self._keys.append(Name)
-            self.recalculate()
+
 
     def __setattr__(self, key, value):
         if hasattr(value, 'import_data') \
         or hasattr(value, 'export_data') \
         or hasattr(value, 'get_parser'):
             self.add_key(key)
+            self.recalculate()
         super().__setattr__(key, value)
 
 def print_structure(structure, output=print, depth=0):

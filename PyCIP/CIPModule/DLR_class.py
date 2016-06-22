@@ -74,15 +74,15 @@ class DLR_Object():
     def update(self):
         rsp = self.transport.get_attr_single(71, 0, 1)
         if rsp and rsp.CIP.General_Status == 0:
-            self.class_struct.import_data(rsp.data)
+            self.class_struct.import_data(rsp.Response_Data)
 
         rsp = self.transport.get_attr_all(71, 1)
         if rsp.CIP.General_Status == 0:
-            data_len = len(rsp.data)
+            data_len = len(rsp.Response_Data)
             filter = self.dict_of_versions[data_len]
             st = self.master_struct.get_struct()
             self.struct = CIPDataStructure(*[st[i-1] for i in filter])
-            self.struct.import_data(rsp.data)
+            self.struct.import_data(rsp.Response_Data)
 
     def __str__(self):
         return self.struct.print()

@@ -19,7 +19,7 @@ class Identity_Object(BaseStructureAutoKeys):
     def update(self):
         rsp = self._transport.get_attr_all(1, 1)
         if rsp.CIP.General_Status == 0:
-            self.import_data(rsp.data)
+            self.import_data(rsp.Response_Data)
 
 
 class MemberListStruct(BaseStructureAutoKeys):
@@ -43,7 +43,7 @@ class Assembly_Object(BaseStructureAutoKeys):
     def update(self, instance = 1):
         rsp = self._transport.get_attr_all(4, instance)
         if rsp.CIP.General_Status == 0:
-            self.import_data(rsp.data)
+            self.import_data(rsp.Response_Data)
             return True
         return False
 

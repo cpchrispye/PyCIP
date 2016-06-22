@@ -73,30 +73,32 @@ class ENIP_Originator():
         self.start()
 
     def send_encap(self, data, send_id=None, receive_id=None):
-        encap_packet = EncapsulatedPacket()
+        ep = EncapsulatedPacket()
 
         if not isinstance(receive_id, int):
             receive_id = self.ignoring_sender_context
 
         if send_id is None:
-            encap_packet.Encapsulation_header.Command(ENIPCommandCode.SendRRData)
-            encap_packet.Command_specific_data = SendRRData(Interface_handle=0, Timeout=0)
-            encap_packet.CPF.append(DT.CPF_NullAddress())
-            encap_packet.CPF.append(DT.CPF_UnconnectedData(Length=len(data)))
+            ep.Encapsulation_header.Command(ENIPCommandCode.SendRRData)
+            ep.Command_specific_data = SendRRData(Interface_handle=0, Timeout=0)
+            CPF = ep.Command_specific_data.Encapsulated_packet
+            CPF.append(DT.CPF_NullAddress())
+            CPF.append(DT.CPF_UnconnectedData(Length=len(data)))
         else:
-            encap_packet.Encapsulation_header.Command(ENIPCommandCode.SendUnitData)
-            encap_packet.Command_specific_data = SendUnitData(Interface_handle=0, Timeout=0)
-            encap_packet.CPF.append(DT.CPF_ConnectedAddress(Connection_Identifier=send_id))
-            encap_packet.CPF.append(DT.CPF_ConnectedData(Length=len(data)))
-        encap_packet.CPF[1].data(data)
+            ep.Encapsulation_header.Command(ENIPCommandCode.SendUnitData)
+            ep.Command_specific_data = SendUnitData(Interface_handle=0, Timeout=0)
+            CPF = ep.Command_specific_data.Encapsulated_packet
+            CPF.append(DT.CPF_ConnectedAddress(Connection_Identifier=send_id))
+            CPF.append(DT.CPF_ConnectedData(Length=len(data)))
+        CPF[1].data(data)
 
-        encap_packet.Encapsulation_header.Length(encap_packet.Command_specific_data.sizeof() + encap_packet.CPF.sizeof())
-        encap_packet.Encapsulation_header.Session_Handle(self.session_handle)
-        encap_packet.Encapsulation_header.Status(0)
-        encap_packet.Encapsulation_header.Sender_Context(receive_id)
-        encap_packet.Encapsulation_header.Options(0)
+        ep.Encapsulation_header.Length(ep.Command_specific_data.sizeof())
+        ep.Encapsulation_header.Session_Handle(self.session_handle)
+        ep.Encapsulation_header.Status(0)
+        ep.Encapsulation_header.Sender_Context(receive_id)
+        ep.Encapsulation_header.Options(0)
 
-        self._send_encap(encap_packet)
+        self._send_encap(ep)
 
         if receive_id == self.ignoring_sender_context:
             return None
@@ -112,15 +114,17 @@ class ENIP_Originator():
             self.create_class_2_3(target_ip)
 
         cmd_sp = RegisterSession(Protocol_version=1, Options_flags=0)
-        encap_packet = EncapsulatedPacket(Command=ENIPCommandCode.RegisterSession,
-                                          Length=cmd_sp.sizeof(),
-                                          Session_Handle=0,
-                                          Status=0,
-                                          Sender_Context=self.internal_sender_context,
-                                          Options=0)
-        encap_packet.Command_specific_data = cmd_sp
+        ep = EncapsulatedPacket(
+                                  Command=ENIPCommandCode.RegisterSession,
+                                  Length=cmd_sp.sizeof(),
+                                  Session_Handle=0,
+                                  Status=0,
+                                  Sender_Context=self.internal_sender_context,
+                                  Options=0
+                                )
+        ep.Command_specific_data = cmd_sp
 
-        self._send_encap(encap_packet)
+        self._send_encap(ep)
 
         time_sleep = 5/1000
         timeout = 5.0
@@ -136,7 +140,7 @@ class ENIP_Originator():
     def unregister_session(self):
         encap_packet = EncapsulatedPacket(Command=ENIPCommandCode.UnRegisterSession,
                                           Length=0,
-                                          Session_Handle=0,
+                                          Session_Handle=self.session_handle,
                                           Status=0,
                                           Sender_Context=self.internal_sender_context,
                                           Options=0)
@@ -146,11 +150,12 @@ class ENIP_Originator():
 
     def NOP(self):
         encap_packet = EncapsulatedPacket(Command=ENIPCommandCode.NOP,
-                                  Length=0,
-                                  Session_Handle=self.session_handle,
-                                  Status=0,
-                                  Sender_Context=self.internal_sender_context,
-                                  Options=0)
+                                          Length=0,
+                                          Session_Handle=self.session_handle,
+                                          Status=0,
+                                          Sender_Context=self.internal_sender_context,
+                                          Options=0
+                                          )
         self._send_encap(encap_packet)
 
     @staticmethod
@@ -316,7 +321,8 @@ class ENIP_Originator():
         self.messager.send_message(rsp_identifier, parsed_packet)
 
     def __del__(self):
-        self.unregister_session()
+        if self.session_handle:
+            self.unregister_session()
 
 class trans_metadata():
 

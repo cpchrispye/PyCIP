@@ -33,12 +33,10 @@ class Basic_CIP():
             # UnConnected Explicit
             if (packet.CPF[0].Type_ID == CPF_Codes.NullAddress
             and packet.CPF[1].Type_ID == CPF_Codes.UnconnectedData):
-                packet.data = packet.CPF[1].data
-                message_response = MessageRouterResponseStruct_UCMM()
-                message_response.import_data(packet.data)
-                packet.CIP = message_response
-                packet.data = packet.data[packet.CIP.sizeof():]
-                signal_id = packet.encapsulation_header.Sender_Context()
+                data = packet.CIP
+                packet.CIP = MessageRouterResponseStruct_UCMM()
+                packet.CIP.import_data(data)
+                signal_id = packet.Encapsulation_header.Sender_Context
                 self.transport_messenger.unregister(message_structure.signal_id)
 
             # Connected Explicit
@@ -204,32 +202,32 @@ class CIP_Manager():
 
     def get_attr_single(self, class_int, instance_int, attribute_int, try_connected=True, route=None):
         path = EPATH()
-        path.append(LogicalSegment(LogicalType.ClassID, LogicalFormat.bit_8, class_int))
-        path.append(LogicalSegment(LogicalType.InstanceID, LogicalFormat.bit_8, instance_int))
-        path.append(LogicalSegment(LogicalType.AttributeID, LogicalFormat.bit_8, attribute_int))
+        path.append(LogicalSegment(LogicalType.ClassID, FormatSize(class_int), class_int))
+        path.append(LogicalSegment(LogicalType.InstanceID, FormatSize(instance_int), instance_int))
+        path.append(LogicalSegment(LogicalType.AttributeID, FormatSize(attribute_int), attribute_int))
 
         return self.explicit_message(CIPServiceCode.get_att_single, path, try_connected=try_connected, route=route)
 
 
     def get_attr_all(self, class_int, instance_int, try_connected=True, route=None):
         path = EPATH()
-        path.append(LogicalSegment(LogicalType.ClassID, LogicalFormat.bit_8, class_int))
-        path.append(LogicalSegment(LogicalType.InstanceID, LogicalFormat.bit_8, instance_int))
+        path.append(LogicalSegment(LogicalType.ClassID, FormatSize(class_int), class_int))
+        path.append(LogicalSegment(LogicalType.InstanceID, FormatSize(instance_int), instance_int))
 
         return self.explicit_message(CIPServiceCode.get_att_all, path, try_connected=try_connected, route=route)
 
     def set_attr_single(self, class_int, instance_int, attribute_int, data, try_connected=True, route=None):
         path = EPATH()
-        path.append(LogicalSegment(LogicalType.ClassID, LogicalFormat.bit_8, class_int))
-        path.append(LogicalSegment(LogicalType.InstanceID, LogicalFormat.bit_8, instance_int))
-        path.append(LogicalSegment(LogicalType.AttributeID, LogicalFormat.bit_8, attribute_int))
+        path.append(LogicalSegment(LogicalType.ClassID, FormatSize(class_int), class_int))
+        path.append(LogicalSegment(LogicalType.InstanceID, FormatSize(instance_int), instance_int))
+        path.append(LogicalSegment(LogicalType.AttributeID, FormatSize(attribute_int), attribute_int))
 
         return self.explicit_message(CIPServiceCode.set_att_single, path, try_connected=try_connected, route=route)
 
-    def set_attr_all(self, class_int, instance_int, attribute_int, data, try_connected=True, route=None):
+    def set_attr_all(self, class_int, instance_int, data, try_connected=True, route=None):
         path = EPATH()
-        path.append(LogicalSegment(LogicalType.ClassID, LogicalFormat.bit_8, class_int))
-        path.append(LogicalSegment(LogicalType.InstanceID, LogicalFormat.bit_8, instance_int))
+        path.append(LogicalSegment(LogicalType.ClassID, FormatSize(class_int), class_int))
+        path.append(LogicalSegment(LogicalType.InstanceID, FormatSize(instance_int), instance_int))
 
         return self.explicit_message(CIPServiceCode.set_att_single, path, try_connected=try_connected, route=route)
 

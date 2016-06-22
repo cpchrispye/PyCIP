@@ -26,6 +26,8 @@ def main():
     # convenience object can use the CIP handler, they have knowledge of the CIP object structure and services
     ID1 = CIPModule.Identity_Object(con)
     print_structure(ID1)
+    print()
+    print()
 
 
     DLR = CIPModule.DLR_Object(con)
@@ -34,20 +36,10 @@ def main():
 
 
     # CIP handler can perform common services such as get attr,
-    # raw rsp come in the form of a transport packet from DataTypes.TransportPacket
-    TransportPacket()
-    rsp = con.get_attr_single(1 , 1 , 7)
+    # raw rsp come in the form of a Encapsulated packet
+
     # the structure is as follows:
-    print("transport header:-")
-    print_structure(rsp.encapsulation_header, depth=1)
-    print("command specific:-")
-    print_structure(rsp.command_specific, depth=1)
-    print("common packet format:-")
-    print_structure(rsp.CPF, depth=1)
-    print("CIP format:-")
-    print_structure(rsp.CIP, depth=1)
-    print("raw data in CIP packet:-")
-    print('\t', rsp.data)
+    print_structure(rsp)
 
 
     # a raw encap send can be used instead of the built in methods
