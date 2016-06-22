@@ -72,14 +72,15 @@ class SendUnitData(CommandSpecific_Rsp):
 class CommandSpecificParser():
     parsers_rsp = {parser.command:parser for parser in CommandSpecific_Rsp.__subclasses__()}
 
-    @classmethod
-    def import_data(cls, data, command, response=False, offset=0):
-        if response:
-            data_parser = cls.parsers_rsp[command]()
-        else:
-            pass
-        data_parser.import_data(data, offset)
-        return data_parser
+    def __init__(self, command):
+        self._command = command
+
+    def get_parser(self):
+        return self.parsers_rsp[self._command]
+
+
+
+
 
 class ENIPEncapsulationHeader(DT.BaseStructureAutoKeys):
 
@@ -92,6 +93,17 @@ class ENIPEncapsulationHeader(DT.BaseStructureAutoKeys):
         self.Sender_Context = DT.ULINT(Sender_Context)
         self.Options        = DT.UDINT(Options)
 
+class EncapsulatedPacket(DT.BaseStructure):
+
+    def __init__(self, **kwargs) :
+        self.Encapsulation_header  = ENIPEncapsulationHeader(**kwargs)
+        self.Command_specific_data = CommandSpecificParser(self.Encapsulation_header.Command)
+        self.CPF                   = DT.CPF_Items()
+
+        self.response_id = None
+
+    def keys(self):
+        return ('Encapsulation_header', 'Command_specific_data', 'CPF')
 
 class TargetItems(DT.BaseStructureAutoKeys):
 

@@ -18,6 +18,16 @@ class TransportPacket():
         return ' '.join(format(x, '02x') for x in self.data)
 
 
+class Packet():
+    def __init__(self, packet):
+        self.packet = packet
+
+        self.response_id
+        self.encapsulation_header
+        self.command_specific
+        self.CPF
+        self.CIP
+
 
 # depreciated
 def EPath_item(*args, **kwargs):

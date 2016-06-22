@@ -73,59 +73,54 @@ class ENIP_Originator():
         self.start()
 
     def send_encap(self, data, send_id=None, receive_id=None):
-        CPF_Array = DT.CPF_Items()
+        encap_packet = EncapsulatedPacket()
 
         if not isinstance(receive_id, int):
             receive_id = self.ignoring_sender_context
 
-        if send_id != None:
-            cmd_code = ENIPCommandCode.SendUnitData
-            command_specific = SendUnitData(Interface_handle=0, Timeout=0)
-            CPF_Array.append(DT.CPF_ConnectedAddress(Connection_Identifier=send_id))
-            CPF_Array.append(DT.CPF_ConnectedData(Length=len(data)))
-            context = receive_id
+        if send_id is None:
+            encap_packet.Encapsulation_header.Command(ENIPCommandCode.SendRRData)
+            encap_packet.Command_specific_data = SendRRData(Interface_handle=0, Timeout=0)
+            encap_packet.CPF.append(DT.CPF_NullAddress())
+            encap_packet.CPF.append(DT.CPF_UnconnectedData(Length=len(data)))
         else:
-            cmd_code = ENIPCommandCode.SendRRData
-            command_specific = SendRRData(Interface_handle=0, Timeout=0)
-            CPF_Array.append(DT.CPF_NullAddress())
-            CPF_Array.append(DT.CPF_UnconnectedData(Length=len(data)))
-            context = receive_id
-        command_specific_bytes = command_specific.export_data()
-        CPF_bytes = CPF_Array.export_data()
+            encap_packet.Encapsulation_header.Command(ENIPCommandCode.SendUnitData)
+            encap_packet.Command_specific_data = SendUnitData(Interface_handle=0, Timeout=0)
+            encap_packet.CPF.append(DT.CPF_ConnectedAddress(Connection_Identifier=send_id))
+            encap_packet.CPF.append(DT.CPF_ConnectedData(Length=len(data)))
+        encap_packet.CPF[1].data(data)
 
+        encap_packet.Encapsulation_header.Length(encap_packet.Command_specific_data.sizeof() + encap_packet.CPF.sizeof())
+        encap_packet.Encapsulation_header.Session_Handle(self.session_handle)
+        encap_packet.Encapsulation_header.Status(0)
+        encap_packet.Encapsulation_header.Sender_Context(receive_id)
+        encap_packet.Encapsulation_header.Options(0)
 
-        encap_header = ENIPEncapsulationHeader( cmd_code,
-                                                len(command_specific_bytes) + len(CPF_bytes) + len(data),
-                                                self.session_handle,
-                                                0,
-                                                context,
-                                                0,
-                                                )
-        encap_header_bytes = encap_header.export_data()
+        self._send_encap(encap_packet)
 
-        self._send_encap(encap_header_bytes + command_specific_bytes + CPF_bytes + data)
-
-        if context == self.ignoring_sender_context:
+        if receive_id == self.ignoring_sender_context:
             return None
-        return context
+        return receive_id
 
     def _send_encap(self, packet):
+        if hasattr(packet, 'export_data'):
+            packet = packet.export_data()
         self.class2_3_out_queue.put(packet)
 
     def register_session(self, target_ip=None):
         if target_ip != None:
             self.create_class_2_3(target_ip)
 
-        command_specific = RegisterSession(Protocol_version=1, Options_flags=0)
-        command_specific_bytes = command_specific.export_data()
-        encap_header = ENIPEncapsulationHeader(ENIPCommandCode.RegisterSession,
-                                               len(command_specific_bytes),
-                                               0,
-                                               0,
-                                               self.internal_sender_context,
-                                               0,
-                                               )
-        self._send_encap(encap_header.export_data() + command_specific_bytes)
+        cmd_sp = RegisterSession(Protocol_version=1, Options_flags=0)
+        encap_packet = EncapsulatedPacket(Command=ENIPCommandCode.RegisterSession,
+                                          Length=cmd_sp.sizeof(),
+                                          Session_Handle=0,
+                                          Status=0,
+                                          Sender_Context=self.internal_sender_context,
+                                          Options=0)
+        encap_packet.Command_specific_data = cmd_sp
+
+        self._send_encap(encap_packet)
 
         time_sleep = 5/1000
         timeout = 5.0
@@ -139,20 +134,24 @@ class ENIP_Originator():
         return True
 
     def unregister_session(self):
-        encap_header = ENIPEncapsulationHeader(ENIPCommandCode.UnRegisterSession,
-                                               0,
-                                               0,
-                                               0,
-                                               0,
-                                               0,
-                                               )
-        self._send_encap(encap_header.export_data())
+        encap_packet = EncapsulatedPacket(Command=ENIPCommandCode.UnRegisterSession,
+                                          Length=0,
+                                          Session_Handle=0,
+                                          Status=0,
+                                          Sender_Context=self.internal_sender_context,
+                                          Options=0)
+        self._send_encap(encap_packet)
         time.sleep(0.2)
         self.stop()
 
     def NOP(self):
-        header = ENIPEncapsulationHeader(ENIPCommandCode.NOP, 0, self.session_handle,  0, 0, 0)
-        self._send_encap(header.export_data())
+        encap_packet = EncapsulatedPacket(Command=ENIPCommandCode.NOP,
+                                  Length=0,
+                                  Session_Handle=self.session_handle,
+                                  Status=0,
+                                  Sender_Context=self.internal_sender_context,
+                                  Options=0)
+        self._send_encap(encap_packet)
 
     @staticmethod
     def list_identity(target_ip='255.255.255.255', target_port=44818, udp=True):
@@ -265,54 +264,32 @@ class ENIP_Originator():
     def _ENIP_context_packet_mgmt(self):
         for packet in  self.internal_buffer:
 
-            if packet.encapsulation_header.Command == ENIPCommandCode.RegisterSession and self.session_handle == None:
-                self.session_handle = packet.encapsulation_header.Session_Handle
+            if packet.Encapsulation_header.Command == ENIPCommandCode.RegisterSession and self.session_handle == None:
+                self.session_handle = int(packet.Encapsulation_header.Session_Handle)
 
-            if packet.encapsulation_header.Command == ENIPCommandCode.UnRegisterSession:
+            if packet.Encapsulation_header.Command == ENIPCommandCode.UnRegisterSession:
                 self.manage_connection = False
 
     def _import_encapsulated_rcv(self, packet, socket):
-        transport = trans_metadata(socket, 'tcp')
+        encap_packet = EncapsulatedPacket()
+        offset = encap_packet.import_data(packet)
 
-        header    = ENIPEncapsulationHeader()
-        offset    = header.import_data(packet)
-        packet_length = header.Length + header.sizeof()
-        if offset < 0 or packet_length  > len(packet):
-            return -1
-
-        parsed_cmd_spc = None
-        CPF_Array = None
-
-        if offset < packet_length:
-            parsed_cmd_spc = CommandSpecificParser().import_data(packet, header.Command, response=True, offset=offset)
-            offset += parsed_cmd_spc.sizeof()
-        if offset < packet_length:
-            CPF_Array = DT.CPF_Items()
-            offset += CPF_Array.import_data(packet, offset)
-
-        parsed_packet = DT.TransportPacket(  transport,
-                                             header,
-                                             parsed_cmd_spc,
-                                             CPF_Array,
-                                             data=packet[offset:packet_length]
-                                            )
-
-        if header.Command == ENIPCommandCode.SendUnitData:
-            rsp_identifier = CPF_Array[0].Connection_Identifier
+        if encap_packet.Encapsulation_header.Command == ENIPCommandCode.SendUnitData:
+            encap_packet.response_id = encap_packet.CPF[0].Connection_Identifier
         else:
-            rsp_identifier = header.Sender_Context()
+            encap_packet.response_id = encap_packet.Encapsulation_header.Sender_Context
 
-        parsed_packet.response_id = rsp_identifier
-        if header.Command in (ENIPCommandCode.SendUnitData, ENIPCommandCode.SendRRData):
-            self.messager.send_message(rsp_identifier, parsed_packet)
+        if encap_packet.Encapsulation_header.Command in (ENIPCommandCode.SendUnitData, ENIPCommandCode.SendRRData):
+            self.messager.send_message(encap_packet.response_id, encap_packet)
 
-        elif header.Command in (ENIPCommandCode.RegisterSession, ENIPCommandCode.UnRegisterSession,
+        elif encap_packet.Encapsulation_header.Command in (ENIPCommandCode.RegisterSession, ENIPCommandCode.UnRegisterSession,
                                 ENIPCommandCode.NOP, ENIPCommandCode.ListIdentity, ENIPCommandCode.ListServices):
-            self.internal_buffer.append(parsed_packet)
+            self.internal_buffer.append(encap_packet)
         else:
             print('unsupported ENIP command')
 
-        del packet[:header.Length + header.sizeof()]
+        del packet[:offset]
+        return
 
     def _import_IO_rcv(self, packet, socket):
         transport = trans_metadata(socket, 'udp')

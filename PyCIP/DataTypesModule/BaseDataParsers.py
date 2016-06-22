@@ -151,6 +151,7 @@ class BaseStructure(VirtualBaseStructure):
         for parser, i in zip(self, range(len(self))):
             if key_filter and i not in key_filter:
                 continue
+            parser = parser.get_parser()() if hasattr(parser, 'get_parser') else parser # allows for factory's to select the parsers
             offset += parser.import_data(bytes, offset)
             if length <= offset:
                 break
@@ -161,6 +162,7 @@ class BaseStructure(VirtualBaseStructure):
         for parser, i in zip(self, range(len(self))):
             if key_filter and i not in key_filter:
                 continue
+            parser = parser.get_parser()() if hasattr(parser, 'get_parser') else parser # allows for factory's to select the parsers
             output_stream += parser.export_data()
         return output_stream
 
@@ -280,7 +282,9 @@ class BaseStructureAutoKeys(BaseStructure):
             self.recalculate()
 
     def __setattr__(self, key, value):
-        if hasattr(value, 'sizeof'):
+        if hasattr(value, 'import_data') \
+        or hasattr(value, 'export_data') \
+        or hasattr(value, 'get_parser'):
             self.add_key(key)
         super().__setattr__(key, value)
 

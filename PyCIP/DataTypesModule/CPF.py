@@ -92,6 +92,8 @@ class CPF_Items(list, BaseStructure):
         return self.sizeof()
 
     def export_data(self):
+        if len(self) == 0:
+            return bytes()
         self.Item_count(len(self))
         bytes_out = self.Item_count.export_data()
         for CPF in self:

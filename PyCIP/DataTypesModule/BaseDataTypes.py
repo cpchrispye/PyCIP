@@ -5,6 +5,7 @@ class BYTES_RAW(bytearray, BaseData):
     def __init__(self, length=None):
         self._value = None
         self._length = length
+        self._value = None
 
     def import_data(self, bytes, offset=0):
         if self._length is None:
@@ -20,8 +21,10 @@ class BYTES_RAW(bytearray, BaseData):
     def sizeof(self):
         return len(self)
 
-    def __call__(self, *args, **kwargs):
-        return bytes(self)
+    def __call__(self, value=None):
+        if value is not None:
+            self[:] = value
+        return self
 
     def __bytes__(self):
         return self
