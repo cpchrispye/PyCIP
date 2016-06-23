@@ -180,8 +180,11 @@ class CIP_Manager():
             self.path = EPath
         fwd_rsp = self.connection_manager.forward_close(self.path, **kwargs)
         if fwd_rsp:
-            self.current_connection.clear_connection()
-            del self.current_connection
+            try:
+                self.current_connection.clear_connection()
+                del self.current_connection
+            except AttributeError:
+                pass
             return fwd_rsp
         return False
 
