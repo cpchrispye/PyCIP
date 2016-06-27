@@ -2,6 +2,65 @@ from collections import OrderedDict
 import random
 from DataTypesModule import *
 
+class ConnectionParams(BaseBitFieldStruct):
+
+    def __init__(self, value=None):
+        self.Redundant_Owner = BaseBitField(1)
+        self.Connection_Type = BaseBitField(2)
+        self.Reserved = BaseBitField(1)
+        self.Priority = BaseBitField(2)
+        self.FixedVariable = BaseBitField(1)
+        self.Connection_Size = BaseBitField(9)
+
+        if value is not None:
+            self(value)
+
+class Trigger(BaseBitFieldStruct):
+
+    def __init__(self, value=None):
+        self.Direction = BaseBitField(1)
+        self.Production_Trigger = BaseBitField(3)
+        self.Transport_Class = BaseBitField(4)
+
+        if value is not None:
+            self.import_data(value.to_bytes(self.sizeof(), 'little'))
+
+
+class Foward_Open_Send(BaseStructureAutoKeys):
+
+    def __init__(self):
+        self.tick                 = BYTE()
+        self.time_out             = USINT()
+        self.OT_connection_ID     = UDINT()
+        self.TO_connection_ID     = UDINT()
+        self.connection_serial    = UINT()
+        self.O_vendor_ID          = UINT()
+        self.O_serial             = UDINT()
+        self.time_out_multiplier  = USINT()
+        self.reserved             = ARRAY(BYTE, 3, 0)
+        self.OT_RPI               = UDINT()
+        self.OT_connection_params = ConnectionParams()
+        self.TO_RPI               = UDINT()
+        self.TO_connection_params = ConnectionParams()
+        self.trigger              = Trigger()
+        self.Connection_Path_Size = USINT()
+        self.Connection_Path      = EPATH(self.Connection_Path_Size)
+
+class Foward_Open_RSP(BaseStructureAutoKeys):
+
+    def __init__(self):
+        self.OT_connection_ID     = UDINT()
+        self.TO_connection_ID     = UDINT()
+        self.connection_serial    = UINT()
+        self.O_vendor_ID          = UINT()
+        self.O_serial             = UDINT()
+        self.OT_API               = UDINT()
+        self.TO_API               = UDINT()
+        self.Application_Reply_Size = USINT()
+        self.reserved               = ARRAY(BYTE, 3, 0)
+        self.Application_Reply      = ARRAY(UINT, self.Application_Reply_Size)
+
+
 class ConnectionManager():
 
     def __init__(self, transport, **kwargs):
@@ -18,38 +77,8 @@ class ConnectionManager():
                                                                 ('Reserved', 'USINT'),
                                                                )
 
-        self.struct_fwd_open_rsp = CIPDataStructure(
-                                                        ('OT_connection_ID', 'UDINT'),
-                                                        ('TO_connection_ID', 'UDINT'),
-                                                        ('connection_serial', 'UINT'),
-                                                        ('O_vendor_ID', 'UINT'),
-                                                        ('O_serial', 'UDINT'),
-                                                        ('OT_API', 'UDINT'),
-                                                        ('TO_API', 'UDINT'),
-                                                        ('Application_Size', 'USINT'),
-                                                        ('Reserved', 'USINT'),
-                                                        ('Data', ['Application_Size', 'BYTE']),
-                                                    )
 
-        self.struct_fwd_open_send = CIPDataStructure(
-                                                        ('tick','BYTE'),
-                                                        ('time_out','USINT'),
-                                                        ('OT_connection_ID','UDINT'),
-                                                        ('TO_connection_ID','UDINT'),
-                                                        ('connection_serial','UINT'),
-                                                        ('O_vendor_ID','UINT'),
-                                                        ('O_serial','UDINT'),
-                                                        ('time_out_multiplier','USINT'),
-                                                        ('reserved_1','octet'),
-                                                        ('reserved_2','octet'),
-                                                        ('reserved_3','octet'),
-                                                        ('OT_RPI','UDINT'),
-                                                        ('OT_connection_params','WORD'),
-                                                        ('TO_RPI','UDINT'),
-                                                        ('TO_connection_params','WORD'),
-                                                        ('trigger','BYTE'),
-                                                        ('path_len','USINT')
-                                                    )
+
         self.struct_fwd_close_send = CIPDataStructure(
                                                         ('tick','BYTE'),
                                                         ('time_out','USINT'),
@@ -70,6 +99,8 @@ class ConnectionManager():
         header.Time_tick = 100
         header.Time_out_ticks = 100
         header.Embedded_Message_Request_Size = len(data)
+
+
 
         packet += header.export_data()
         packet += data
@@ -103,34 +134,36 @@ class ConnectionManager():
         message_router_path.append(LogicalSegment(LogicalType.ClassID, LogicalFormat.bit_8, 6))
         message_router_path.append(LogicalSegment(LogicalType.InstanceID, LogicalFormat.bit_8, 1))
 
-        connection_path_bytes = EPath.export_data()
+        fwd_open = Foward_Open_Send()
 
-        self.struct_fwd_open_send.tick = tick
-        self.struct_fwd_open_send.time_out = time_out
-        self.struct_fwd_open_send.OT_connection_ID = OT_connection_ID if OT_connection_ID != None else random.randrange(1, 99999)
-        self.struct_fwd_open_send.TO_connection_ID = TO_connection_ID if TO_connection_ID != None else self.trans.get_next_sender_context()
-        self.struct_fwd_open_send.connection_serial = connection_serial if connection_serial != None else random.randrange(0, 2^16)
-        self.struct_fwd_open_send.O_vendor_ID = O_vendor_ID
-        self.struct_fwd_open_send.O_serial = O_serial
-        self.struct_fwd_open_send.time_out_multiplier = time_out_multiplier
-        self.struct_fwd_open_send.reserved_1 = reserved_1
-        self.struct_fwd_open_send.reserved_2 = reserved_2
-        self.struct_fwd_open_send.reserved_3 = reserved_3
-        self.struct_fwd_open_send.OT_RPI = OT_RPI
-        self.struct_fwd_open_send.OT_connection_params = OT_connection_params
-        self.struct_fwd_open_send.TO_RPI = TO_RPI
-        self.struct_fwd_open_send.TO_connection_params = TO_connection_params
-        self.struct_fwd_open_send.trigger = trigger
-        self.struct_fwd_open_send.path_len = len(connection_path_bytes)//2
+        fwd_open.tick(tick)
+        fwd_open.time_out(time_out)
+        fwd_open.OT_connection_ID(OT_connection_ID if OT_connection_ID != None else random.randrange(1, 99999))
+        fwd_open.TO_connection_ID(TO_connection_ID if TO_connection_ID != None else self.trans.get_next_sender_context())
+        fwd_open.connection_serial(connection_serial if connection_serial != None else random.randrange(0, 2^16))
+        fwd_open.O_vendor_ID(O_vendor_ID)
+        fwd_open.O_serial(O_serial)
+        fwd_open.time_out_multiplier(time_out_multiplier)
+        fwd_open.OT_RPI(OT_RPI)
+        fwd_open.OT_connection_params(OT_connection_params)
+        fwd_open.TO_RPI(TO_RPI)
+        fwd_open.TO_connection_params(TO_connection_params)
+        fwd_open.trigger(trigger)
+        fwd_open.Connection_Path_Size(EPath.sizeof()//2)
+        fwd_open.Connection_Path = EPath
 
-        command_specific = self.struct_fwd_open_send.export_data()
-
-        receipt = self.trans.explicit_message(CIPServiceCode.forward_open, message_router_path, data=(command_specific + connection_path_bytes))
+        receipt = self.trans.explicit_message(CIPServiceCode.forward_open, message_router_path, data=fwd_open.export_data())
         response = self.trans.receive(receipt)
-        if response and response.CIP.General_Status == 0:
-            self.struct_fwd_open_rsp.import_data(response.data)
-            return self.struct_fwd_open_rsp
+
+        if response.CIP.General_Status == 0:
+            rsp_data = response.Response_Data
+            response.Response_Data = Foward_Open_RSP()
+            response.Response_Data.import_data(rsp_data)
+
+        if response is not None:
+            return response
         return False
+
 
 
     def forward_close(self, EPath, tick=6, time_out=0x28, connection_serial=None, O_vendor_ID=88, O_serial=12345678):

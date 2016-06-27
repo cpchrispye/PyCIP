@@ -180,12 +180,24 @@ class KeySegment_v4(DataTypesModule.BaseDataParsers.BaseStructureAutoKeys):
 
 class EPATH(list):
 
+    def __init__(self, length=None):
+        if length is None:
+            length = USINT(0)
+        self._length = length
+
+
+    def append(self, p_object):
+        self._length += 1
+        super().append(p_object)
+
     def add(self, *args, **kwargs):
         seg_type, *args = args
         if seg_type == SegmentType.PortSegment:
             item = PortSegment(*args, **kwargs)
         elif seg_type == SegmentType.LogicalSegment:
             item = LogicalSegment(*args, **kwargs)
+        elif seg_type == SegmentType.DataSegment:
+            item = DataSegment(*args, **kwargs)
         else:
             raise TypeError("segment type not supported")
         self.append(item)
@@ -210,6 +222,9 @@ class EPATH(list):
             else:
                 raise ValueError("Value not a acceptable segment: " + str(seg_type))
         return index - offset
+
+    def sizeof(self):
+        return len(self.export_data())
 
 def not_none(primary, secondary):
     return primary if primary != None else secondary

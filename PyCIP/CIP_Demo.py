@@ -17,11 +17,12 @@ def main():
     reply = ENIP_Layer.register_session(str(device_ip))
     if not reply:
         return
-
+    cp = CIPModule.ConnectionParams(0x480A)
     # create a CIP handler with a ENIP layer
     con = CIPModule.CIP_Manager(ENIP_Layer)
 
     data = con.get_attr_all(1, 1)
+    con.forward_open()
 
     # convenience object can use the CIP handler, they have knowledge of the CIP object structure and services
     ID1 = CIPModule.Identity_Object(con)
@@ -39,7 +40,7 @@ def main():
     # raw rsp come in the form of a Encapsulated packet
 
     # the structure is as follows:
-    print_structure(rsp)
+    print_structure(data)
 
 
     # a raw encap send can be used instead of the built in methods

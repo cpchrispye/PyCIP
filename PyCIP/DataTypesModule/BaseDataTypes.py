@@ -85,12 +85,12 @@ class LWORD(BaseData):
 
 class ARRAY(list, BaseStructure):
 
-    def __init__(self, data_type, size=None):
+    def __init__(self, data_type, size=None, init=None):
         self._data_type = data_type
         self._size = size
         if self._size:
             for _ in range(self._size):
-                self.append(self._data_type())
+                self.append(self._data_type(init))
 
     def import_data(self, data, offset=0, size=None):
         length = len(data)

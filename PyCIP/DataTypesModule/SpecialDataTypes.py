@@ -44,6 +44,15 @@ class Revision(BaseStructureAutoKeys):
         self.Minor = USINT()
 
 class BaseBitFieldStruct(BaseStructureAutoKeys):
+    '''
+        bit 32
+            ^
+            |
+            |
+            |
+            v
+        bit 0
+    '''
 
     def import_data(self, bytes, offset=0):
         length = len(bytes)
@@ -59,9 +68,9 @@ class BaseBitFieldStruct(BaseStructureAutoKeys):
 
     def export_data(self):
         output = int()
-        for parser in reversed(self):
+        for parser in self:
             val = parser.export_data()
-            output <<= parser.bit_size()
+            output <<= parser.bit_sizeof()
             output |= val
         output_stream = output.to_bytes(self.sizeof(), 'little')
         return output_stream
@@ -76,6 +85,18 @@ class BaseBitFieldStruct(BaseStructureAutoKeys):
         if isinstance(value, BaseBitField):
             self.add_key(key)
         super().__setattr__(key, value)
+
+
+    def __call__(self, value=None):
+        if value is not None:
+            self.import_data(value.to_bytes(self.sizeof(), 'little'))
+        return self.export_data()
+
+    def __str__(self):
+        return ', '.join([str(k) +": " + str(v) for k, v in self.items()])
+
+    def __bytes__(self):
+        return self.export_data()
 
 class BaseBitField(VirtualBaseData):
 
