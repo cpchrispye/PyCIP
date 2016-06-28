@@ -21,8 +21,6 @@ def main():
     # create a CIP handler with a ENIP layer
     con = CIPModule.CIP_Manager(ENIP_Layer)
 
-    data = con.get_attr_all(1, 1)
-
 
     # convenience object can use the CIP handler, they have knowledge of the CIP object structure and services
     ID1 = CIPModule.Identity_Object(con)

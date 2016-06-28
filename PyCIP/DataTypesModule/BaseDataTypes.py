@@ -16,7 +16,7 @@ class BYTES_RAW(bytearray, BaseData):
         return int(self._length)
 
     def export_data(self):
-        return self
+        return self[:]
 
     def sizeof(self):
         return len(self)
@@ -27,7 +27,9 @@ class BYTES_RAW(bytearray, BaseData):
         return self
 
     def __bytes__(self):
-        return self
+        a = bytes()
+        a += self[:]
+        return a
 
 
 class BOOL(BaseData):
