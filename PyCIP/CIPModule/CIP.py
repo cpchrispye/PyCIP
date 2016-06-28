@@ -163,11 +163,12 @@ class CIP_Manager():
             self.path.append(LogicalSegment(LogicalType.InstanceID, LogicalFormat.bit_8, 1))
         else:
             self.path = EPath
-        self._fwd_rsp = self.connection_manager.forward_open(self.path, **kwargs)
-        if self._fwd_rsp:
+        fwd_rsp = self.connection_manager.forward_open(self.path, **kwargs)
+        if fwd_rsp.CIP.General_Status == 0:
             self.e_connected_connection = Basic_CIP(self.trans)
-            self.e_connected_connection.set_connection(self._fwd_rsp.OT_connection_ID, self._fwd_rsp.TO_connection_ID)
+            self.e_connected_connection.set_connection(fwd_rsp.Response_Data.OT_connection_ID, fwd_rsp.Response_Data.TO_connection_ID)
             self.current_connection = self.e_connected_connection
+            self._fwd_rsp = fwd_rsp.Response_Data
             return self._fwd_rsp
         return False
 

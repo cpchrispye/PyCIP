@@ -11,12 +11,14 @@ class Signaler():
         self.message_queue = Queue()
 
     def register(self, signal_id):
+        signal_id = int(signal_id)
         if signal_id not in self.signal_subscriber_table:
             self.signal_subscriber_table[signal_id] = []
         if self.message_queue not in self.signal_subscriber_table[signal_id]:
             self.signal_subscriber_table[signal_id].append(self.message_queue)
 
     def unregister(self, signal_id):
+        signal_id = int(signal_id)
         if signal_id not in self.signal_subscriber_table:
             return None
         if self.message_queue in self.signal_subscriber_table[signal_id]:
@@ -24,6 +26,7 @@ class Signaler():
             del self.signal_subscriber_table[signal_id][index]
 
     def send_message(self, signal_id, message):
+        signal_id = int(signal_id)
         message_s = MessageStruct(signal_id, self.id, message)
         for sub in self.signal_subscriber_table[signal_id]:
             sub.put(message_s)

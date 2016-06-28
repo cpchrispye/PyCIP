@@ -13,7 +13,7 @@ def main():
     devices = ENIPModule.parse_list_identity(rsp)
     print("devices found: " + ', '.join(devices.keys()))
 
-    device_ip = devices['1783-ETAP/A'][0]
+    device_ip = devices['1715-AENTR'][0]
     reply = ENIP_Layer.register_session(str(device_ip))
     if not reply:
         return
