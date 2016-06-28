@@ -38,6 +38,7 @@ def main():
     # raw rsp come in the form of a Encapsulated packet
 
     # the structure is as follows:
+    data = con.get_attr_single(1, 1, 1)
     print_structure(data)
 
 
