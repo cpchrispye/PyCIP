@@ -159,6 +159,7 @@ class ConnectionManager():
             rsp_data = response.Response_Data
             response.Response_Data = Foward_Open_RSP()
             response.Response_Data.import_data(rsp_data)
+            self.fwd_open_connection_data = response.Response_Data
 
         if response is not None:
             return response
@@ -176,7 +177,7 @@ class ConnectionManager():
 
         self.struct_fwd_close_send.tick = tick
         self.struct_fwd_close_send.time_out = time_out
-        self.struct_fwd_close_send.connection_serial = connection_serial if connection_serial != None else self.struct_fwd_open_send.connection_serial
+        self.struct_fwd_close_send.connection_serial = connection_serial if connection_serial != None else self.fwd_open_connection_data.connection_serial
         self.struct_fwd_close_send.O_vendor_ID = O_vendor_ID
         self.struct_fwd_close_send.O_serial = O_serial
         self.struct_fwd_close_send.Reserved = 0
@@ -187,6 +188,7 @@ class ConnectionManager():
         receipt = self.trans.explicit_message(CIPServiceCode.forward_close, message_router_path, data=(command_specific + connection_path_bytes))
         response = self.trans.receive(receipt)
         if response and response.CIP.General_Status == 0:
-            self.struct_fwd_open_rsp.import_data(response.data)
-            return self.struct_fwd_open_rsp
+            rsp_data = response.Response_Data
+            response.Response_Data = Foward_Open_RSP()
+            response.Response_Data.import_data(rsp_data)
         return None

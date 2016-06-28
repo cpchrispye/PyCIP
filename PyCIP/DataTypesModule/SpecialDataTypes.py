@@ -141,3 +141,6 @@ class BaseBitField(VirtualBaseData):
         if self._bit_size == 1:
             return str(bool(self._value))
         return str(self._value)
+
+    def __int__(self):
+        return self.internal_data

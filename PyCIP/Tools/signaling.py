@@ -27,9 +27,10 @@ class Signaler():
 
     def send_message(self, signal_id, message):
         signal_id = int(signal_id)
-        message_s = MessageStruct(signal_id, self.id, message)
-        for sub in self.signal_subscriber_table[signal_id]:
-            sub.put(message_s)
+        if signal_id in self.signal_subscriber_table:
+            message_s = MessageStruct(signal_id, self.id, message)
+            for sub in self.signal_subscriber_table[signal_id]:
+                sub.put(message_s)
 
     def get_message(self,time_out=None):
         try:

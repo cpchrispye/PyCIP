@@ -17,12 +17,12 @@ def main():
     reply = ENIP_Layer.register_session(str(device_ip))
     if not reply:
         return
-    cp = CIPModule.ConnectionParams(0x480A)
+
     # create a CIP handler with a ENIP layer
     con = CIPModule.CIP_Manager(ENIP_Layer)
 
     data = con.get_attr_all(1, 1)
-    con.forward_open()
+
 
     # convenience object can use the CIP handler, they have knowledge of the CIP object structure and services
     ID1 = CIPModule.Identity_Object(con)
@@ -54,17 +54,15 @@ def main():
     epath.append(DataSegment(DataSubType.SimpleData, bytearray([0,0,0,0])))
 
     # raw send is used along with the service code
-    rsp = con.forward_open(epath, OT_connection_params=0x480A, TO_connection_params=0x4838, trigger=0x01)
+    try:
+        rsp = con.forward_open(epath, OT_connection_params=0x480A, TO_connection_params=0x4838, trigger=0x01)
+        time.sleep(60)
 
-    # check to see if successful before parsing
-    if rsp:
-        parsed_string = ShortStringDataParser().import_data(rsp.data)
-        print(parsed_string)
-
-    # close down
+    except Exception as e:
+        print(e)
+        pass
+    con.forward_close()
     ENIP_Layer.unregister_session()
-
-    return
 
 
 if __name__ == '__main__':

@@ -1,7 +1,7 @@
 from threading import Thread
 #from multiprocessing import Process as Thread
 from enum import IntEnum
-from CIPModule.connection_manager_class import ConnectionManager
+from CIPModule.connection_manager_class import ConnectionManager, Trigger
 from DataTypesModule import *
 from collections import OrderedDict
 from Tools.signaling import Signaler, SignalerM2M
@@ -60,10 +60,18 @@ class Basic_CIP():
     def get_next_sender_context(self):
         return self.trans.get_next_sender_context()
 
-    def set_connection(self, OT_connection_id, TO_connection_id):
+    def set_connection(self, connection_class, OT_connection_id, TO_connection_id, source_port=None, dest_port=None):
         self.connected = True
-        self.OT_connection_id = OT_connection_id
-        self.TO_connection_id = TO_connection_id
+        self.connection_class = int(connection_class)
+        self.OT_connection_id = int(OT_connection_id)
+        self.TO_connection_id = int(TO_connection_id)
+
+        self.transport_messenger.register(self.TO_connection_id)
+        if self.connection_class <= 2:
+            self.trans.connect_class_0_1(source_port=source_port, dest_port=dest_port)
+        elif self.connection_class <= 3:
+            self.trans.connect_class_2_3()
+
 
     def clear_connection(self):
         self.connected = False
@@ -156,17 +164,19 @@ class CIP_Manager():
         if len(self.path):
             self.forward_open(*EPath)
 
-    def forward_open(self, EPath=None, **kwargs):
+    def forward_open(self, EPath=None, trigger=0xa3, **kwargs):
         if EPath == None:
             self.path = EPATH()
             self.path.append(LogicalSegment(LogicalType.ClassID, LogicalFormat.bit_8, 2))
             self.path.append(LogicalSegment(LogicalType.InstanceID, LogicalFormat.bit_8, 1))
         else:
             self.path = EPath
-        fwd_rsp = self.connection_manager.forward_open(self.path, **kwargs)
+        fwd_rsp = self.connection_manager.forward_open(self.path, trigger=trigger,**kwargs)
+        cp = Trigger(trigger)
         if fwd_rsp.CIP.General_Status == 0:
             self.e_connected_connection = Basic_CIP(self.trans)
-            self.e_connected_connection.set_connection(fwd_rsp.Response_Data.OT_connection_ID, fwd_rsp.Response_Data.TO_connection_ID)
+            self.e_connected_connection.set_connection(cp.Transport_Class,
+                                                       fwd_rsp.Response_Data.OT_connection_ID, fwd_rsp.Response_Data.TO_connection_ID, 2222, 2222)
             self.current_connection = self.e_connected_connection
             self._fwd_rsp = fwd_rsp.Response_Data
             return self._fwd_rsp

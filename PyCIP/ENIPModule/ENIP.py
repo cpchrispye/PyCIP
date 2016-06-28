@@ -31,7 +31,7 @@ class ENIP_Originator():
 
         #self.TCP_rcv_buffer = bytearray()
         if target_ip != None:
-            self.create_class_2_3(target_ip, target_port)
+            self.connect_class_2_3(target_ip, target_port)
     @property
     def connected(self):
         return self.manage_connection
@@ -52,22 +52,23 @@ class ENIP_Originator():
     def stop(self):
         self.manage_connection = False
 
-    def create_class_2_3(self, target_ip, target_port=44818):
-        if self.target != None:
-            raise Tools.exceptions.IncorrectState("IP address already set, use another layer object for different targets")
-        self.target = target_ip
+    def connect_class_2_3(self, target_ip=None, dest_port=44818):
+        self.target = target_ip if self.target is None else self.target
+
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.settimeout(3)
-        s.connect((self.target, target_port))
+        s.connect((self.target, dest_port))
         s.setblocking(0)
         self.stream_connection = s
         self.start()
 
-    def create_class_0_1(self, target_ip, target_port=2222):
-        self.target = target_ip
+    def connect_class_0_1(self, target_ip=None, source_port=2222, dest_port=2222):
+        self.target = target_ip if self.target is None else self.target
+
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s.settimeout(3)
-        s.connect((self.target, target_port))
+        s.bind(('0.0.0.0', source_port))
+        s.connect((self.target, dest_port))
         s.setblocking(0)
         self.datagram_connection = s
         self.start()
@@ -104,14 +105,9 @@ class ENIP_Originator():
             return None
         return receive_id
 
-    def _send_encap(self, packet):
-        if hasattr(packet, 'export_data'):
-            packet = packet.export_data()
-        self.class2_3_out_queue.put(packet)
-
     def register_session(self, target_ip=None):
         if target_ip != None:
-            self.create_class_2_3(target_ip)
+            self.connect_class_2_3(target_ip)
 
         cmd_sp = RegisterSession(Protocol_version=1, Options_flags=0)
         ep = EncapsulatedPacket(
@@ -196,6 +192,12 @@ class ENIP_Originator():
             responses.append(li)
         return responses
 
+
+    def _send_encap(self, packet):
+        if hasattr(packet, 'export_data'):
+            packet = packet.export_data()
+        self.class2_3_out_queue.put(packet)
+
     # this ideally will use asyncio to manage connections
     def _manage_connection(self):
         self.TCP_rcv_buffers = {}
@@ -247,24 +249,25 @@ class ENIP_Originator():
 
         s = self.datagram_connection
         if s != None:
-                # receive
+            datagram_packet = None
+            # receive
+            try:
+                datagram_packet = s.recv(65535)
+            except BlockingIOError:
+                pass
+
+            if datagram_packet and len(datagram_packet):
+                # all data from tcp stream will be encapsulated
+                self._import_IO_rcv(datagram_packet, s)
+
+            # send
+            while not self.class0_1_out_queue.empty():
                 try:
-                    datagram_packet = s.recv(65535)
-                except BlockingIOError:
+                    packet = self.class0_1_out_queue.get()
+                except:
                     pass
-
-                if len(datagram_packet):
-                    # all data from tcp stream will be encapsulated
-                    self._import_IO_rcv(datagram_packet, s)
-
-                # send
-                while not self.class0_1_out_queue.empty():
-                    try:
-                        packet = self.class0_1_out_queue.get()
-                    except:
-                        pass
-                    else:
-                        s.send(packet)
+                else:
+                    s.send(packet)
 
     def _ENIP_context_packet_mgmt(self):
         for packet in  self.internal_buffer:
