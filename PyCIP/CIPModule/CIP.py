@@ -17,6 +17,7 @@ class Basic_CIP():
         self.OT_connection_id = None
         self.TO_connection_id = None
         self.active = True
+        self._IO_input_data = bytes()
         self.transport_messenger = Signaler()
         self.cip_messenger = SignalerM2M()
         self._cip_manager_thread = Thread(target=self._CIP_manager, args=[self.trans], name="cip_layer")
@@ -52,7 +53,11 @@ class Basic_CIP():
             # Connected Implicit
             elif(packet.CPF[0].Type_ID == CPF_Codes.SequencedAddress
             and packet.CPF[1].Type_ID == CPF_Codes.ConnectedData):
-                print("Connected Implicit Not Supported Yet")
+                if self.trigger.Transport_Class() == 0:
+                    packet.CIP = IO_Response_0_Struct(packet.CIP)
+                elif self.trigger.Transport_Class() == 1:
+                    packet.CIP = IO_Response_1_Struct(packet.CIP)
+                self._set_IO_Receive(packet.Response_Data)
                 continue
             self.cip_messenger.send_message(signal_id, packet)
 
@@ -60,16 +65,16 @@ class Basic_CIP():
     def get_next_sender_context(self):
         return self.trans.get_next_sender_context()
 
-    def set_connection(self, connection_class, OT_connection_id, TO_connection_id, source_port=None, dest_port=None):
+    def set_connection(self, trigger, OT_connection_id, TO_connection_id, source_port=None, dest_port=None):
         self.connected = True
-        self.connection_class = int(connection_class)
+        self.trigger = Trigger(int(trigger))
         self.OT_connection_id = int(OT_connection_id)
         self.TO_connection_id = int(TO_connection_id)
 
         self.transport_messenger.register(self.TO_connection_id)
-        if self.connection_class <= 2:
+        if self.trigger.Transport_Class() <= 2:
             self.trans.connect_class_0_1(source_port=source_port, dest_port=dest_port)
-        elif self.connection_class <= 3:
+        elif self.trigger.Transport_Class() <= 3:
             self.trans.connect_class_2_3()
 
 
@@ -111,6 +116,12 @@ class Basic_CIP():
         else:
             return None
 
+    def IO_Receive(self):
+        return self._IO_input_data
+
+    def _set_IO_Receive(self, val):
+        self._IO_input_data = val
+
 class ReplyService(BaseBitFieldStruct):
     def __init__(self):
         self.RequestResponse = BaseBitField(1)
@@ -119,7 +130,7 @@ class ReplyService(BaseBitFieldStruct):
 #vol1 ver 3.18 2-4.2
 class MessageRouterResponseStruct(BaseStructureAutoKeys):
 
-    def __init__(self):
+    def __init__(self, data=None):
         self.Sequence_Count = UINT()
         self.Reply_Service = ReplyService()
         self.Reserved = USINT()
@@ -128,16 +139,39 @@ class MessageRouterResponseStruct(BaseStructureAutoKeys):
         self.Additional_Status = ARRAY(WORD, self.Size_of_Additional_Status)
         self.Response_Data = BYTES_RAW()
 
+        if data is not None:
+            self.import_data(data)
+
 #vol1 ver 3.18 2-4.2
 class MessageRouterResponseStruct_UCMM(BaseStructureAutoKeys):
 
-    def __init__(self):
+    def __init__(self, data=None):
         self.Reply_Service = ReplyService()
         self.Reserved = USINT()
         self.General_Status = USINT()
         self.Size_of_Additional_Status = USINT()
         self.Additional_Status = ARRAY(WORD, self.Size_of_Additional_Status)
         self.Response_Data = BYTES_RAW()
+
+        if data is not None:
+            self.import_data(data)
+
+class IO_Response_0_Struct(BaseStructureAutoKeys):
+
+    def __init__(self, data=None):
+        self.Response_Data = BYTES_RAW()
+
+        if data is not None:
+            self.import_data(data)
+
+class IO_Response_1_Struct(BaseStructureAutoKeys):
+
+    def __init__(self, data=None):
+        self.Sequence_Count = UINT()
+        self.Response_Data = BYTES_RAW()
+
+        if data is not None:
+            self.import_data(data)
 
 def explicit_request(service, EPath, data=None):
     request = bytearray()
@@ -175,7 +209,7 @@ class CIP_Manager():
         cp = Trigger(trigger)
         if fwd_rsp.CIP.General_Status == 0:
             self.e_connected_connection = Basic_CIP(self.trans)
-            self.e_connected_connection.set_connection(cp.Transport_Class,
+            self.e_connected_connection.set_connection(trigger,
                                                        fwd_rsp.Response_Data.OT_connection_ID, fwd_rsp.Response_Data.TO_connection_ID, 2222, 2222)
             self.current_connection = self.e_connected_connection
             self._fwd_rsp = fwd_rsp.Response_Data
@@ -244,6 +278,9 @@ class CIP_Manager():
         path.append(LogicalSegment(LogicalType.InstanceID, FormatSize(instance_int), instance_int))
 
         return self.explicit_message(CIPServiceCode.set_att_single, path, try_connected=try_connected, route=route)
+
+    def read_input(self):
+        return self.current_connection.IO_Receive()
 
 
 class RoutingType(IntEnum):

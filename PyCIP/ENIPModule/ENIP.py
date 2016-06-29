@@ -305,18 +305,25 @@ class ENIP_Originator():
         if packet_length <= 6:
             return None
 
+        parsed_packet = IOPacket(packet)
+
         CPF_Array = DT.CPF_Items()
         offset = CPF_Array.import_data(packet)
 
-        parsed_packet = DT.TransportPacket(  transport,
-                                             None,
-                                             None,
-                                             CPF_Array,
-                                             data=packet[offset:packet_length]
-                                        )
+        # parsed_packet = DT.TransportPacket(  transport,
+        #                                      None,
+        #                                      None,
+        #                                      CPF_Array,
+        #                                      data=packet[offset:packet_length]
+        #                                 )
+        #
+        # if len(CPF_Array) and  CPF_Array[0].Type_ID == CPF_Codes.SequencedAddress:
+        #     rsp_identifier = CPF_Array[0].Connection_Identifier
+        # else:
+        #     return None
 
-        if len(CPF_Array) and  CPF_Array[0].Type_ID == CPF_Codes.SequencedAddress:
-            rsp_identifier = CPF_Array[0].Connection_Identifier
+        if len(parsed_packet.CPF) and  parsed_packet.CPF[0].Type_ID == CPF_Codes.SequencedAddress:
+            rsp_identifier = parsed_packet.CPF[0].Connection_Identifier
         else:
             return None
 

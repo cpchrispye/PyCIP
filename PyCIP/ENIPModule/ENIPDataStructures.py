@@ -126,9 +126,38 @@ class EncapsulatedPacket(DT.BaseStructure):
     def Response_Data(self, val):
         self.Command_specific_data.Encapsulated_packet[1].data.Response_Data = val
 
-
     def keys(self):
         return ('Encapsulation_header', 'Command_specific_data')
+
+class IOPacket(DT.BaseStructure):
+    def __init__(self, data=None):
+        self.CPF = DT.CPF_Items()
+
+        self.response_id = None
+        if data is not None:
+            self.CPF.import_data(data)
+
+    @property
+    def CIP(self):
+        return self.CPF[1].data
+
+    @CIP.setter
+    def CIP(self, val):
+        self.CPF[1].data = val
+
+    @property
+    def Response_Data(self):
+        try:
+            return self.CPF[1].data.Response_Data
+        except AttributeError:
+            return None
+
+    @Response_Data.setter
+    def Response_Data(self, val):
+        self.CPF[1].data.Response_Data = val
+
+    def keys(self):
+        return ('CPF')
 
 class TargetItems(DT.BaseStructureAutoKeys):
 

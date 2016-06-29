@@ -55,6 +55,8 @@ def main():
     # raw send is used along with the service code
     try:
         rsp = con.forward_open(epath, OT_connection_params=0x480A, TO_connection_params=0x4838, trigger=0x01)
+
+        
         time.sleep(60)
 
     except Exception as e:
