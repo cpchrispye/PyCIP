@@ -89,7 +89,7 @@ class BaseBitFieldStruct(BaseStructureAutoKeys):
 
     def __call__(self, value=None):
         if value is not None:
-            self.import_data(value.to_bytes(self.sizeof(), 'little'))
+            self.import_data(int(value).to_bytes(self.sizeof(), 'little'))
         return self.export_data()
 
     def __str__(self):
@@ -98,7 +98,10 @@ class BaseBitFieldStruct(BaseStructureAutoKeys):
     def __bytes__(self):
         return self.export_data()
 
-class BaseBitField(VirtualBaseData):
+    def __int__(self):
+        return int.from_bytes(self.export_data(), 'little')
+
+class BaseBitField(VirtualBaseData, NumberInt, NumberComp, NumberBasic):
 
     def __init__(self, bit_size, endian='little'):
         self._bit_size = bit_size
@@ -126,7 +129,9 @@ class BaseBitField(VirtualBaseData):
     def bit_sizeof(self):
         return self._bit_size
 
-    def __call__(self, *args, **kwargs):
+    def __call__(self, value=None):
+        if value is not None:
+            self._value = int(value) & self._mask
         return self._value & self._mask
 
     @property

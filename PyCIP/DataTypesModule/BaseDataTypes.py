@@ -1,4 +1,6 @@
 from DataTypesModule.BaseDataParsers import BaseData, BaseStructure, VirtualBaseStructure
+import struct
+from Tools.exceptions import ExportFailure
 
 class BYTES_RAW(bytearray, BaseData):
 
@@ -24,6 +26,7 @@ class BYTES_RAW(bytearray, BaseData):
     def __call__(self, value=None):
         if value is not None:
             self[:] = value
+            self._length(len(self))
         return self
 
     def __bytes__(self):
@@ -84,6 +87,28 @@ class LWORD(BaseData):
     _byte_size = 8
     _signed = 0
 
+class REAL(BaseData):
+    _byte_size = 4
+    _signed = 1
+
+    def import_data(self, data, offset=0, endian=None):
+        section = data[offset: offset + self._byte_size]
+        if endian is None:
+            endian = self._endian
+        self._value = struct.unpack('f', section)
+        return self._byte_size
+
+    def export_data(self, value=None, endian=None):
+        if value is None:
+            value = self._value
+        if endian is None:
+            endian = self._endian
+        try:
+            return struct.pack('f', self._value)
+        except Exception as e:
+            description = e.args[0]
+            raise ExportFailure(':- ' + description)
+
 
 class ARRAY(list, BaseStructure):
 
@@ -92,7 +117,11 @@ class ARRAY(list, BaseStructure):
         self._size = size
         if self._size:
             for _ in range(self._size):
-                self.append(self._data_type(init))
+                if init is None:
+                    obj = self._data_type()
+                else:
+                    obj = self._data_type(init)
+                self.append(obj)
 
     def import_data(self, data, offset=0, size=None):
         length = len(data)

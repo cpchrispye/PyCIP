@@ -61,6 +61,11 @@ class Foward_Open_RSP(BaseStructureAutoKeys):
         self.Application_Reply      = ARRAY(UINT, self.Application_Reply_Size)
 
 
+class Foward_Open_Send_Rsp():
+    def __init__(self, fwd_send, fwd_rsp):
+        self.fwd_send = fwd_send
+        self.fwd_rsp = fwd_rsp
+
 class ConnectionManager():
 
     def __init__(self, transport, **kwargs):
@@ -155,17 +160,16 @@ class ConnectionManager():
         receipt = self.trans.explicit_message(CIPServiceCode.forward_open, message_router_path, data=fwd_open.export_data())
         response = self.trans.receive(receipt)
 
+        if response is None:
+            return Foward_Open_Send_Rsp(None, None)
+
         if response.CIP.General_Status == 0:
             rsp_data = response.Response_Data
             response.Response_Data = Foward_Open_RSP()
             response.Response_Data.import_data(rsp_data)
-            self.fwd_open_connection_data = response.Response_Data
-
-        if response is not None:
-            return response
-        return False
-
-
+            self.fwd_open_connection_data = Foward_Open_Send_Rsp(fwd_open, response)
+            return self.fwd_open_connection_data
+        return Foward_Open_Send_Rsp(fwd_open, None)
 
     def forward_close(self, EPath, tick=6, time_out=0x28, connection_serial=None, O_vendor_ID=88, O_serial=12345678):
 

@@ -14,10 +14,12 @@ class Basic_CIP():
         self.trans = transportLayer
         self.sequence_number = 1
         self.connected = False
-        self.OT_connection_id = None
-        self.TO_connection_id = None
+        self.fwd_open_data = None
+        self.OT_connection_ID = None
+        self.TO_connection_ID = None
         self.active = True
         self._IO_input_data = bytes()
+        self._IO_output_data = bytes()
         self.transport_messenger = Signaler()
         self.cip_messenger = SignalerM2M()
         self._cip_manager_thread = Thread(target=self._CIP_manager, args=[self.trans], name="cip_layer")
@@ -25,6 +27,7 @@ class Basic_CIP():
 
     def _CIP_manager(self, trans):
         while self.active and self.trans.connected:
+            self._IO_Send()
             message_structure = self.transport_messenger.get_message(0.1)
             if message_structure == None:
                 continue
@@ -65,23 +68,24 @@ class Basic_CIP():
     def get_next_sender_context(self):
         return self.trans.get_next_sender_context()
 
-    def set_connection(self, trigger, OT_connection_id, TO_connection_id, source_port=None, dest_port=None):
+    def set_connection(self, fwd_open_data):
         self.connected = True
-        self.trigger = Trigger(int(trigger))
-        self.OT_connection_id = int(OT_connection_id)
-        self.TO_connection_id = int(TO_connection_id)
+        self.trigger = Trigger(int(fwd_open_data.fwd_send.trigger))
+        self.OT_connection_ID = fwd_open_data.fwd_rsp.Response_Data.OT_connection_ID
+        self.TO_connection_ID = fwd_open_data.fwd_rsp.Response_Data.TO_connection_ID
 
-        self.transport_messenger.register(self.TO_connection_id)
-        if self.trigger.Transport_Class() <= 2:
-            self.trans.connect_class_0_1(source_port=source_port, dest_port=dest_port)
-        elif self.trigger.Transport_Class() <= 3:
+        self.transport_messenger.register(self.TO_connection_ID)
+        if self.trigger.Transport_Class <= 2:
+            self.trans.connect_class_0_1(source_port=fwd_open_data.fwd_rsp.CPF[2].sin_port,
+                                         dest_port=fwd_open_data.fwd_rsp.CPF[3].sin_port)
+        elif self.trigger.Transport_Class <= 3:
             self.trans.connect_class_2_3()
 
 
     def clear_connection(self):
         self.connected = False
-        self.OT_connection_id = None
-        self.TO_connection_id = None
+        self.OT_connection_ID = None
+        self.TO_connection_ID = None
 
     def explicit_message(self, service, EPath, data=None, receive=True):
         packet = bytearray()
@@ -93,7 +97,7 @@ class Basic_CIP():
         packet += explicit_request(service, EPath, data=data)
 
         if receive:
-            receive_id = self.TO_connection_id if self.TO_connection_id else self.trans.get_next_sender_context()
+            receive_id = self.TO_connection_ID if self.TO_connection_ID else self.trans.get_next_sender_context()
             # if we want the manager to be notified that this message has been responded too, we must register
             self.transport_messenger.register(receive_id)
             if self.connected:
@@ -105,7 +109,7 @@ class Basic_CIP():
             receive_id = None
 
         # SEND PACKET
-        context = self.trans.send_encap(packet, self.OT_connection_id, receive_id)
+        context = self.trans.send_encap(packet, self.OT_connection_ID, receive_id)
 
         return receipt
 
@@ -121,6 +125,13 @@ class Basic_CIP():
 
     def _set_IO_Receive(self, val):
         self._IO_input_data = val
+
+    def IO_Send(self, val):
+        self._IO_output_data = val
+
+    def _IO_Send(self):
+        if len(self._IO_output_data) > 4:
+            self.trans.send_IO(self._IO_output_data, self.OT_connection_ID, 100)
 
 class ReplyService(BaseBitFieldStruct):
     def __init__(self):
@@ -192,28 +203,27 @@ class CIP_Manager():
         self.primary_connection = Basic_CIP(transport)
         self.current_connection = self.primary_connection
         self.connection_manager = ConnectionManager(self.primary_connection)
-        self.e_connected_connection = None
+        self.connected_connection = None
 
         # if there is a path then we make a connection
         if len(self.path):
             self.forward_open(*EPath)
 
-    def forward_open(self, EPath=None, trigger=0xa3, **kwargs):
+    def forward_open(self, EPath=None, **kwargs):
         if EPath == None:
             self.path = EPATH()
             self.path.append(LogicalSegment(LogicalType.ClassID, LogicalFormat.bit_8, 2))
             self.path.append(LogicalSegment(LogicalType.InstanceID, LogicalFormat.bit_8, 1))
         else:
             self.path = EPath
-        fwd_rsp = self.connection_manager.forward_open(self.path, trigger=trigger,**kwargs)
-        cp = Trigger(trigger)
-        if fwd_rsp.CIP.General_Status == 0:
-            self.e_connected_connection = Basic_CIP(self.trans)
-            self.e_connected_connection.set_connection(trigger,
-                                                       fwd_rsp.Response_Data.OT_connection_ID, fwd_rsp.Response_Data.TO_connection_ID, 2222, 2222)
-            self.current_connection = self.e_connected_connection
-            self._fwd_rsp = fwd_rsp.Response_Data
-            return self._fwd_rsp
+
+        fwd_rsp = self.connection_manager.forward_open(self.path,**kwargs)
+        if fwd_rsp.fwd_rsp is not None:
+            self.connected_connection = Basic_CIP(self.trans)
+            self.connected_connection.set_connection(fwd_rsp)
+            self.current_connection = self.connected_connection
+            self._fwd_rsp = fwd_rsp
+            return self._fwd_rsp.fwd_rsp.Response_Data
         return False
 
     def forward_close(self, EPath=None, **kwargs):
@@ -235,8 +245,8 @@ class CIP_Manager():
 
     def explicit_message(self, service, request_path, data=None, route=None, try_connected=True):
 
-        if try_connected and self.e_connected_connection and self.e_connected_connection.connected:
-            connection = self.e_connected_connection
+        if try_connected and self.connected_connection and self.connected_connection.connected:
+            connection = self.connected_connection
             receipt = connection.explicit_message(service, request_path, data=data)
         elif route:
             message = explicit_request(service, request_path, data=data)
@@ -281,6 +291,8 @@ class CIP_Manager():
 
     def read_input(self):
         return self.current_connection.IO_Receive()
+    def write_output(self, val):
+        return self.current_connection.IO_Send(val)
 
 
 class RoutingType(IntEnum):

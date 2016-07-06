@@ -105,6 +105,13 @@ class ENIP_Originator():
             return None
         return receive_id
 
+    def send_IO(self, data, send_id, Sequence_number):
+        packet = IOPacket()
+        packet.CPF.append(DT.CPF_SequencedAddress(send_id, Sequence_number))
+        packet.CPF.append(DT.CPF_ConnectedData(data=data))
+        self._send_IO(packet)
+
+
     def register_session(self, target_ip=None):
         if target_ip != None:
             self.connect_class_2_3(target_ip)
@@ -192,6 +199,10 @@ class ENIP_Originator():
             responses.append(li)
         return responses
 
+    def _send_IO(self, packet):
+        if hasattr(packet, 'export_data'):
+            packet = packet.export_data()
+        self.class0_1_out_queue.put(packet)
 
     def _send_encap(self, packet):
         if hasattr(packet, 'export_data'):

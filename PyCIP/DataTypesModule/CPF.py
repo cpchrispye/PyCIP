@@ -33,28 +33,33 @@ class CPF_NullAddress(CPF_Item):
 
 class CPF_ConnectedAddress(CPF_Item):
     type_id = CPF_Codes.ConnectedAddress
-    def __init__(self, Length=4, Connection_Identifier=None):
-        super().__init__(Length)
+    Length=4
+    def __init__(self, Connection_Identifier=None):
+        super().__init__(self.Length)
         self.Connection_Identifier = UDINT(Connection_Identifier)
 
 class CPF_SequencedAddress(CPF_Item):
     type_id = CPF_Codes.SequencedAddress
-    def __init__(self, Length=8, Connection_Identifier=None, Encapsulation_Sequence_Number=None):
-        super().__init__(Length)
+    Length=8
+    def __init__(self, Connection_Identifier=None, Encapsulation_Sequence_Number=None):
+        super().__init__(self.Length)
         self.Connection_Identifier         = UDINT(Connection_Identifier)
         self.Encapsulation_Sequence_Number = UDINT(Encapsulation_Sequence_Number)
 
 class CPF_UnconnectedData(CPF_Item):
     type_id = CPF_Codes.UnconnectedData
-    def __init__(self, Length=0):
+    def __init__(self, Length=0, data=None):
         super().__init__(Length)
         self.data = BYTES_RAW(self.Length)
 
+
 class CPF_ConnectedData(CPF_Item):
     type_id = CPF_Codes.ConnectedData
-    def __init__(self, Length=0):
+    def __init__(self, Length=0, data=None):
         super().__init__(Length)
         self.data = BYTES_RAW(self.Length)
+        if data is not None:
+            self.data(data)
 
 class CPF_SockaddrOT(CPF_Item):
     type_id = CPF_Codes.OTSockaddrInfo

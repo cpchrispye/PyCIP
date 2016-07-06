@@ -157,7 +157,7 @@ class IOPacket(DT.BaseStructure):
         self.CPF[1].data.Response_Data = val
 
     def keys(self):
-        return ('CPF')
+        return ('CPF', )
 
 class TargetItems(DT.BaseStructureAutoKeys):
 
