@@ -1,9 +1,10 @@
 from PyCIP.DataTypesModule.Constants import *
 
 import struct
-import DataTypesModule.BaseDataParsers
-from DataTypesModule.BaseDataTypes import *
-from DataTypesModule.SpecialDataTypes import *
+
+from PyCIP.DataTypesModule import BaseDataParsers
+
+from PyCIP.DataTypesModule.SpecialDataTypes import *
 
 class SegType():
     type_code = None
@@ -161,7 +162,7 @@ class DataSegment(SegType):
         return "DataSegment NULL"
 
 
-class KeySegment_v4(DataTypesModule.BaseDataParsers.BaseStructureAutoKeys):
+class KeySegment_v4(BaseDataParsers.BaseStructureAutoKeys):
     version = 4
     def __init__(self):
         self.Vendor_ID      = UINT()

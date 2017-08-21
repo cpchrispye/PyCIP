@@ -6,7 +6,7 @@ from threading import Thread
 import time
 from PyCIP.Tools.signaling import Signaler
 from .ENIPDataStructures import *
-import Tools.networking
+from PyCIP.Tools import exceptions, networking
 
 class ENIP_Originator():
 
@@ -54,7 +54,7 @@ class ENIP_Originator():
 
     def create_class_2_3(self, target_ip, target_port=44818):
         if self.target != None:
-            raise Tools.exceptions.IncorrectState("IP address already set, use another layer object for different targets")
+            raise exceptions.IncorrectState("IP address already set, use another layer object for different targets")
         self.target = target_ip
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.settimeout(3)
@@ -161,7 +161,7 @@ class ENIP_Originator():
         delay = 1000
         header = ENIPEncapsulationHeader(ENIPCommandCode.ListIdentity, 0, 0, 0, delay, 0)
         data = header.export_data()
-        networks = Tools.networking.list_networks()
+        networks = networking.list_networks()
 
         for ifc in networks:
             if udp:

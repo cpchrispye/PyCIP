@@ -1,5 +1,5 @@
 from abc import ABCMeta, abstractmethod
-from  PyCIP.DataTypesModule.NumericTypes import *
+from  PyCIP. DataTypesModule.NumericTypes import *
 
 class VirtualBaseData():
     __metaclass__ = ABCMeta

@@ -2,6 +2,7 @@ from collections import OrderedDict
 import random
 from PyCIP.DataTypesModule.DataParsers import *
 from PyCIP.DataTypesModule.DataTypes import *
+from PyCIP.DataTypesModule.EPATH import LogicalSegment
 
 class ConnectionManager():
 
