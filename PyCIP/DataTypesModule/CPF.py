@@ -1,9 +1,6 @@
-#import DataTypesModule
-from .DataTypes import *
-from .DataParsers import *
 from abc import abstractmethod, ABCMeta
-from DataTypesModule.BaseDataParsers import BaseStructureAutoKeys
-from DataTypesModule.BaseDataTypes import *
+from PyCIP.DataTypesModule.BaseDataParsers import BaseStructureAutoKeys
+from PyCIP.DataTypesModule.BaseDataTypes import *
 from enum import IntEnum
 
 class CPF_Codes(IntEnum):

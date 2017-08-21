@@ -1,7 +1,7 @@
 from collections import OrderedDict
 import random
-from DataTypesModule.DataParsers import *
-from DataTypesModule.DataTypes import *
+from PyCIP.DataTypesModule.DataParsers import *
+from PyCIP.DataTypesModule.DataTypes import *
 
 class ConnectionManager():
 

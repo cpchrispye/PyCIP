@@ -1,5 +1,5 @@
-from DataTypesModule.DataParsers import *
-import DataTypesModule as DT
+from PyCIP.DataTypesModule.DataParsers import *
+import PyCIP.DataTypesModule as DT
 from enum import IntEnum
 
 class MessageType(IntEnum):

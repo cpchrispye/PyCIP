@@ -1,6 +1,6 @@
-from CIPModule import CIP
-from DataTypesModule.DataTypes import *
-from DataTypesModule.DataParsers import *
+from PyCIP.CIPModule import CIP
+from PyCIP.DataTypesModule.DataTypes import *
+from PyCIP.DataTypesModule.DataParsers import *
 class DLR_Object():
 
     def __init__(self, transport, **kwargs):

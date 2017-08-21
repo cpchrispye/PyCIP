@@ -1,5 +1,5 @@
-from DataTypesModule.BaseDataTypes import *
-from DataTypesModule.BaseDataParsers import *
+from PyCIP.DataTypesModule.BaseDataTypes import *
+from PyCIP.DataTypesModule.BaseDataParsers import *
 import socket
 import struct
 import math

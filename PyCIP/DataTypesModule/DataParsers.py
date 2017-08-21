@@ -2,7 +2,7 @@ from collections import OrderedDict
 import struct
 import socket
 import abc
-from DataTypesModule.EPATH import EPATH
+from PyCIP.DataTypesModule.EPATH import EPATH
 
 class CIPDataStructureVirtual(object):
     __metaclass__ = abc.ABCMeta

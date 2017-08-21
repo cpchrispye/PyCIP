@@ -1,4 +1,4 @@
-from DataTypesModule.BaseDataParsers import BaseData, BaseStructure, VirtualBaseStructure
+from PyCIP.DataTypesModule.BaseDataParsers import BaseData, BaseStructure, VirtualBaseStructure
 
 class BOOL(BaseData):
     _byte_size = 1

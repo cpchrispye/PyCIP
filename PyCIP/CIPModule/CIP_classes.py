@@ -1,5 +1,5 @@
-from CIPModule import CIP
-from DataTypesModule import *
+from PyCIP.CIPModule import CIP
+from PyCIP.DataTypesModule import *
 
 class Identity_Object(BaseStructureAutoKeys):
 

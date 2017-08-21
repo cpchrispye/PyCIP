@@ -4,7 +4,7 @@ import socket
 from threading import Thread
 #from multiprocessing import Process as Thread
 import time
-from Tools.signaling import Signaler
+from PyCIP.Tools.signaling import Signaler
 from .ENIPDataStructures import *
 import Tools.networking
 

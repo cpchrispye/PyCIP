@@ -1,10 +1,10 @@
 from threading import Thread
 #from multiprocessing import Process as Thread
 from enum import IntEnum
-from CIPModule.connection_manager_class import ConnectionManager
-from DataTypesModule import *
+from PyCIP.CIPModule.connection_manager_class import ConnectionManager
+from PyCIP.DataTypesModule import *
 from collections import OrderedDict
-from Tools.signaling import Signaler, SignalerM2M
+from PyCIP.Tools.signaling import Signaler, SignalerM2M
 import struct
 
 

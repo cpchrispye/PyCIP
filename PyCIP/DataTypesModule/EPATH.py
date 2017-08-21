@@ -1,4 +1,4 @@
-from DataTypesModule.Constants import *
+from PyCIP.DataTypesModule.Constants import *
 
 import struct
 import DataTypesModule.BaseDataParsers

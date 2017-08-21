@@ -1,6 +1,6 @@
 
 import struct
-from DataTypesModule.Constants import *
+from PyCIP.DataTypesModule.Constants import *
 
 class TransportPacket():
 

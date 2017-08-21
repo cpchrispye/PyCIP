@@ -1,2 +1,2 @@
-from ENIPModule.ENIP import ENIP_Originator, parse_list_identity
-import ENIPModule.ENIPDataStructures
+from PyCIP.ENIPModule.ENIP import ENIP_Originator, parse_list_identity
+import PyCIP.ENIPModule.ENIPDataStructures
